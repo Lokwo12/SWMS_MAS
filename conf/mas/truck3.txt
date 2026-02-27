@@ -1,0 +1,6 @@
+agent('tmp/truck3','truck3','no',italian,
+      ['conf/communication'],
+      ['/home/studente/Simple/src/communication_fipa','/home/studente/Simple/src/learning','/home/studente/Simple/src/planasp'],
+      'no',
+      '/home/studente/Simple/src/onto/dali_onto.txt',
+      []).

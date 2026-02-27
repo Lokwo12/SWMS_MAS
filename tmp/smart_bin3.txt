@@ -1,0 +1,56 @@
+next_level(0, 20).
+next_level(20, 60).
+next_level(60, 80).
+next_level(80, 100).
+next_level(100, 100).
+
+current_level(Level) :-
+    clause(fill_level(Level),_), !.
+current_level(0).
+
+mark_next_level(Current) :-
+    next_level(Current, Next),
+    retractall(fill_level(_)),
+    assert(fill_level(Next)).
+
+auto_fillI(dummy) :-
+    clause(agent(BinID),_),
+    current_level(Level),
+        ( clause(full_alert_sent,_), Level = 100 ->
+        a(message(control_center, inform(full(BinID), BinID)))
+        ; format('[~w] Filling: ~w%~n', [BinID, Level]),
+            a(message(logger, inform(status(BinID, Level), BinID))),
+            ( Level = 100 ->
+                    ( clause(full_alert_sent,_) -> true
+                    ; format('[~w] FULL reached -> alerting control_center~n', [BinID]),
+                        a(message(control_center, inform(full(BinID), BinID))),
+                        assert(full_alert_sent)
+                    )
+            ; mark_next_level(Level)
+            )
+    ).
+
+auto_fill(dummy).
+
+normalize_cleared(inform(cleared, _From)).
+normalize_cleared(inform(cleared, _Meta, _From)).
+normalize_cleared(inform(cleared)).
+normalize_cleared(cleared).
+
+handle_cleared_message(Msg) :-
+    normalize_cleared(Msg),
+    clause(agent(BinID),_),
+    retractall(fill_level(_)),
+    assert(fill_level(0)),
+    retractall(full_alert_sent),
+    format('[~w] Reset to 0%~n', [BinID]),
+    a(message(logger, inform(reset(BinID), BinID))).
+
+inform_EE(Msg) :-
+    handle_cleared_message(Msg).
+
+inform_EE(Msg, _From) :-
+    handle_cleared_message(Msg).
+
+inform_EE(Msg, _Meta, _From) :-
+    handle_cleared_message(Msg).

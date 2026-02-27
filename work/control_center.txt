@@ -1,0 +1,202 @@
+normalize_full(inform(full(BinID), _From), BinID).
+normalize_full(inform(full(BinID), _Meta, _From), BinID).
+normalize_full(inform(full(BinID)), BinID).
+normalize_full(full(BinID), BinID).
+
+normalize_agree(inform(agree(Truck, BinID), _From), Truck, BinID).
+normalize_agree(inform(agree(Truck, BinID), _Meta, _From), Truck, BinID).
+normalize_agree(inform(agree(Truck, BinID)), Truck, BinID).
+normalize_agree(agree(Truck, BinID), Truck, BinID).
+
+normalize_refuse(inform(refuse(Truck, BinID), _From), Truck, BinID).
+normalize_refuse(inform(refuse(Truck, BinID), _Meta, _From), Truck, BinID).
+normalize_refuse(inform(refuse(Truck, BinID)), Truck, BinID).
+normalize_refuse(refuse(Truck, BinID), Truck, BinID).
+
+normalize_collected(inform(collected(Truck, BinID), _From), Truck, BinID).
+normalize_collected(inform(collected(Truck, BinID), _Meta, _From), Truck, BinID).
+normalize_collected(inform(collected(Truck, BinID)), Truck, BinID).
+normalize_collected(collected(Truck, BinID), Truck, BinID).
+
+truck_pool([truck1, truck2, truck3]).
+
+remove_seen([], _, []).
+remove_seen([H|T], Seen, R) :-
+    member(H, Seen),
+    remove_seen(T, Seen, R).
+remove_seen([H|T], Seen, [H|R]) :-
+    \+ member(H, Seen),
+    remove_seen(T, Seen, R).
+
+random_pick(List, Pick) :-
+    length(List, L),
+    L > 0,
+    random(0, L, N),
+    nth0(N, List, Pick).
+
+dispatch_request(BinID) :-
+    truck_pool(AllTrucks),
+    ( clause(tried_trucks(BinID, Tried),_) -> true ; Tried = [] ),
+    remove_seen(AllTrucks, Tried, Candidates0),
+    ( Candidates0 = [] ->
+        retractall(tried_trucks(BinID,_)),
+        Candidates = AllTrucks,
+        Retries = cycled
+    ; Candidates = Candidates0,
+      Retries = normal
+    ),
+    random_pick(Candidates, Truck),
+    retractall(last_try(BinID,_)),
+    assert(last_try(BinID, Truck)),
+    format('[control_center] Requesting ~w to collect ~w (~w)~n', [Truck, BinID, Retries]),
+    clause(agent(CC),_),
+    a(message(logger, inform(requesting(Truck, BinID, Retries), CC))),
+    a(message(Truck, inform(collect(BinID), CC))).
+
+process_full_events(dummy) :-
+    clause(past(inform(full(BinID), _Meta, Sender), T, Sender),_),
+    \+ clause(cc_seen(T),_),
+    assert(cc_seen(T)),
+    format('[control_center] FULL alert received for ~w~n', [BinID]),
+    retractall(tried_trucks(BinID,_)),
+    assert(tried_trucks(BinID, [])),
+    clause(agent(CC),_),
+    a(message(logger, inform(full_received(BinID), CC))),
+    dispatch_request(BinID),
+    fail.
+process_full_events(dummy) :-
+        clause(past(inform(full(BinID), Sender), T, Sender),_),
+        \+ clause(cc_seen(T),_),
+        assert(cc_seen(T)),
+        ( clause(awaiting(BinID),_) ->
+                true
+        ; format('[control_center] FULL alert received for ~w~n', [BinID]),
+            assert(awaiting(BinID)),
+            retractall(tried_trucks(BinID,_)),
+            assert(tried_trucks(BinID, [])),
+            clause(agent(CC),_),
+            a(message(logger, inform(full_received(BinID), CC))),
+            dispatch_request(BinID)
+        ),
+        fail.
+process_full_events(dummy).
+
+process_truck_events(dummy) :-
+    clause(past(inform(agree(Truck, BinID), _Meta, Truck), T, Truck),_),
+    \+ clause(cc_seen(T),_),
+    assert(cc_seen(T)),
+    format('[control_center] ~w accepted for ~w~n', [Truck, BinID]),
+    retractall(tried_trucks(BinID,_)),
+    clause(agent(CC),_),
+    a(message(logger, inform(assigned(Truck, BinID), CC))),
+    fail.
+process_truck_events(dummy) :-
+    clause(past(inform(agree(Truck, BinID), Truck), T, Truck),_),
+    \+ clause(cc_seen(T),_),
+    assert(cc_seen(T)),
+    format('[control_center] ~w accepted for ~w~n', [Truck, BinID]),
+    retractall(tried_trucks(BinID,_)),
+    clause(agent(CC),_),
+    a(message(logger, inform(assigned(Truck, BinID), CC))),
+    fail.
+process_truck_events(dummy) :-
+    clause(past(inform(refuse(Truck, BinID), _Meta, Truck), T, Truck),_),
+    \+ clause(cc_seen(T),_),
+    assert(cc_seen(T)),
+    format('[control_center] ~w refused for ~w, retrying...~n', [Truck, BinID]),
+    ( clause(tried_trucks(BinID, Tried),_) -> true ; Tried = [] ),
+    retractall(tried_trucks(BinID,_)),
+    assert(tried_trucks(BinID, [Truck|Tried])),
+    clause(agent(CC),_),
+    a(message(logger, inform(refused(Truck, BinID), CC))),
+    dispatch_request(BinID),
+    fail.
+process_truck_events(dummy) :-
+    clause(past(inform(refuse(Truck, BinID), Truck), T, Truck),_),
+    \+ clause(cc_seen(T),_),
+    assert(cc_seen(T)),
+    format('[control_center] ~w refused for ~w, retrying...~n', [Truck, BinID]),
+    ( clause(tried_trucks(BinID, Tried),_) -> true ; Tried = [] ),
+    retractall(tried_trucks(BinID,_)),
+    assert(tried_trucks(BinID, [Truck|Tried])),
+    clause(agent(CC),_),
+    a(message(logger, inform(refused(Truck, BinID), CC))),
+    dispatch_request(BinID),
+    fail.
+process_truck_events(dummy) :-
+    clause(past(inform(collected(Truck, BinID), _Meta, Truck), T, Truck),_),
+    \+ clause(cc_seen(T),_),
+    assert(cc_seen(T)),
+    format('[control_center] ~w collected ~w, sending clearance~n', [Truck, BinID]),
+    retractall(tried_trucks(BinID,_)),
+    clause(agent(CC),_),
+    a(message(logger, inform(completed(Truck, BinID), CC))),
+    a(message(BinID, inform(cleared, CC))),
+    retractall(awaiting(BinID)),
+    fail.
+process_truck_events(dummy) :-
+    clause(past(inform(collected(Truck, BinID), Truck), T, Truck),_),
+    \+ clause(cc_seen(T),_),
+    assert(cc_seen(T)),
+    format('[control_center] ~w collected ~w, sending clearance~n', [Truck, BinID]),
+    retractall(tried_trucks(BinID,_)),
+    clause(agent(CC),_),
+    a(message(logger, inform(completed(Truck, BinID), CC))),
+    a(message(BinID, inform(cleared, CC))),
+    retractall(awaiting(BinID)),
+    fail.
+process_truck_events(dummy).
+
+monitorI(dummy) :-
+    process_full_events(dummy),
+    process_truck_events(dummy).
+
+monitor(dummy).
+
+handle_control_message(Msg) :-
+    normalize_full(Msg, BinID),
+    ( clause(awaiting(BinID),_) ->
+        true
+    ; format('[control_center] FULL alert received for ~w~n', [BinID]),
+      assert(awaiting(BinID)),
+      retractall(tried_trucks(BinID,_)),
+      assert(tried_trucks(BinID, [])),
+      clause(agent(CC),_),
+      a(message(logger, inform(full_received(BinID), CC))),
+      dispatch_request(BinID)
+    ).
+
+handle_control_message(Msg) :-
+    normalize_agree(Msg, Truck, BinID),
+    format('[control_center] ~w accepted for ~w~n', [Truck, BinID]),
+    retractall(tried_trucks(BinID,_)),
+    clause(agent(CC),_),
+    a(message(logger, inform(assigned(Truck, BinID), CC))).
+
+handle_control_message(Msg) :-
+    normalize_refuse(Msg, Truck, BinID),
+    format('[control_center] ~w refused for ~w, retrying...~n', [Truck, BinID]),
+    ( clause(tried_trucks(BinID, Tried),_) -> true ; Tried = [] ),
+    retractall(tried_trucks(BinID,_)),
+    assert(tried_trucks(BinID, [Truck|Tried])),
+    clause(agent(CC),_),
+    a(message(logger, inform(refused(Truck, BinID), CC))),
+    dispatch_request(BinID).
+
+handle_control_message(Msg) :-
+    normalize_collected(Msg, Truck, BinID),
+    format('[control_center] ~w collected ~w, sending clearance~n', [Truck, BinID]),
+    retractall(tried_trucks(BinID,_)),
+    retractall(awaiting(BinID)),
+    clause(agent(CC),_),
+    a(message(logger, inform(completed(Truck, BinID), CC))),
+    a(message(BinID, inform(cleared, CC))).
+
+inform_EE(Msg) :-
+    handle_control_message(Msg).
+
+inform_EE(Msg, _From) :-
+    handle_control_message(Msg).
+
+inform_EE(Msg, _Meta, _From) :-
+    handle_control_message(Msg).

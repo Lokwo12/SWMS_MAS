@@ -1,0 +1,113 @@
+heartbeatI(dummy) :-
+    clause(agent(TruckID),_),
+    tick_busy(dummy),
+    availability_state(State),
+    format('[~w] heartbeat, state=~w~n', [TruckID, State]),
+    a(message(control_center, inform(alive(TruckID), TruckID))),
+    a(message(logger, inform(heartbeat(TruckID, State), TruckID))).
+
+heartbeat(dummy).
+
+availability_state(available) :-
+    \+ clause(busy_cycles(N),_), !.
+availability_state(available) :-
+    clause(busy_cycles(N),_),
+    N =< 0, !.
+availability_state(busy) :-
+    clause(busy_cycles(N),_),
+    N > 0.
+
+tick_busy(dummy) :-
+    clause(busy_cycles(N),_),
+    N > 0,
+    N1 is N - 1,
+    retractall(busy_cycles(_)),
+    assert(busy_cycles(N1)), !.
+tick_busy(dummy).
+
+truck_available(dummy) :-
+    availability_state(available),
+    random(0, 100, R),
+    R < 65.
+
+process_collect_orders(dummy) :-
+    clause(past(inform(collect(BinID), _Meta, CC), T, CC),_),
+    \+ clause(order_seen(T),_),
+    assert(order_seen(T)),
+    clause(agent(TruckID),_),
+    format('[~w] request received for ~w~n', [TruckID, BinID]),
+    ( truck_available(dummy) ->
+        format('[~w] ACCEPTED for ~w~n', [TruckID, BinID]),
+        retractall(busy_cycles(_)),
+        assert(busy_cycles(3)),
+        a(message(logger, inform(accepted(TruckID, BinID), TruckID))),
+        a(message(control_center, inform(agree(TruckID, BinID), TruckID))),
+        a(message(logger, inform(working(TruckID, BinID), TruckID))),
+        a(message(control_center, inform(collected(TruckID, BinID), TruckID))),
+        retractall(busy_cycles(_)),
+        a(message(logger, inform(ready(TruckID), TruckID)))
+    ; format('[~w] REFUSED for ~w~n', [TruckID, BinID]),
+      a(message(logger, inform(refused(TruckID, BinID), TruckID))),
+      a(message(control_center, inform(refuse(TruckID, BinID), TruckID)))
+    ),
+    fail.
+process_collect_orders(dummy) :-
+        clause(past(inform(collect(BinID), CC), T, CC),_),
+        \+ clause(order_seen(T),_),
+        assert(order_seen(T)),
+        clause(agent(TruckID),_),
+        format('[~w] request received for ~w~n', [TruckID, BinID]),
+        ( truck_available(dummy) ->
+                format('[~w] ACCEPTED for ~w~n', [TruckID, BinID]),
+                retractall(busy_cycles(_)),
+                assert(busy_cycles(3)),
+                a(message(logger, inform(accepted(TruckID, BinID), TruckID))),
+                a(message(control_center, inform(agree(TruckID, BinID), TruckID))),
+                a(message(logger, inform(working(TruckID, BinID), TruckID))),
+                a(message(control_center, inform(collected(TruckID, BinID), TruckID))),
+                retractall(busy_cycles(_)),
+                a(message(logger, inform(ready(TruckID), TruckID)))
+        ; format('[~w] REFUSED for ~w~n', [TruckID, BinID]),
+            a(message(logger, inform(refused(TruckID, BinID), TruckID))),
+            a(message(control_center, inform(refuse(TruckID, BinID), TruckID)))
+        ),
+        fail.
+process_collect_orders(dummy).
+
+order_monitorI(dummy) :-
+        process_collect_orders(dummy).
+
+order_monitor(dummy).
+
+normalize_collect_request(request(collect(BinID), _From), BinID).
+normalize_collect_request(request(collect(BinID), _Meta, _From), BinID).
+normalize_collect_request(request(collect(BinID)), BinID).
+normalize_collect_request(collect(BinID), BinID).
+
+handle_request_message(Msg) :-
+    normalize_collect_request(Msg, BinID),
+    clause(agent(TruckID),_),
+    format('[~w] request received for ~w~n', [TruckID, BinID]),
+    ( truck_available(dummy) ->
+        format('[~w] ACCEPTED for ~w~n', [TruckID, BinID]),
+        retractall(busy_cycles(_)),
+        assert(busy_cycles(3)),
+        a(message(logger, inform(accepted(TruckID, BinID), TruckID))),
+        a(message(control_center, inform(agree(TruckID, BinID), TruckID))),
+        a(message(logger, inform(working(TruckID, BinID), TruckID))),
+        a(message(control_center, inform(collected(TruckID, BinID), TruckID))),
+        retractall(busy_cycles(_)),
+        a(message(logger, inform(ready(TruckID), TruckID)))
+    ; format('[~w] REFUSED for ~w~n', [TruckID, BinID]),
+      a(message(logger, inform(refused(TruckID, BinID), TruckID))),
+      a(message(control_center, inform(refuse(TruckID, BinID), TruckID)))
+    ).
+
+request_EE(Msg) :-
+    handle_request_message(Msg).
+
+request_EE(Msg, _From) :-
+    handle_request_message(Msg).
+
+request_EE(Msg, _Meta, _From) :-
+    handle_request_message(Msg).
