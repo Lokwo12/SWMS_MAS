@@ -1,7 +1,9 @@
 
-evi(heartbeat(dummy)):-clause(agent(var_TruckID),var__),tick_busy(dummy),availability_state(var_State),format('[~w] heartbeat, state=~w~n',[var_TruckID,var_State]),a(message(control_center,inform(alive(var_TruckID),var_TruckID))),a(message(logger,inform(heartbeat(var_TruckID,var_State),var_TruckID))).
+evi(heartbeat(dummy)):-clause(agent(var_TruckID),var__),tick_busy(dummy),availability_state(var_State),(heartbeat_log_needed(var_State)->format('Truck ~w | state: ~w~n',[var_TruckID,var_State]);true),a(message(control_center,inform(alive(var_TruckID),var_TruckID))).
 
 heartbeat(dummy).
+
+heartbeat_log_needed(var_State):-(clause(last_heartbeat_state(var_State),var__)->var_SameState=true;var_SameState=false),(clause(heartbeat_count(var_C),var__)->true;var_C=0),var_C1 is var_C+1,retractall(heartbeat_count(var__)),assert(heartbeat_count(var_C1)),(var_SameState==false->retractall(last_heartbeat_state(var__)),assert(last_heartbeat_state(var_State));true),(var_SameState==false;0 is var_C1 mod 5).
 
 availability_state(available):- \+clause(busy_cycles(var_N),var__),!.
 
@@ -15,31 +17,15 @@ tick_busy(dummy).
 
 truck_available(dummy):-availability_state(available),random(0,100,var_R),var_R<65.
 
-process_collect_orders(dummy):-clause(past(inform(collect(var_BinID),var__Meta,var_CC),var_T,var_CC),var__),\+clause(order_seen(var_T),var__),assert(order_seen(var_T)),clause(agent(var_TruckID),var__),format('[~w] request received for ~w~n',[var_TruckID,var_BinID]),(truck_available(dummy)->format('[~w] ACCEPTED for ~w~n',[var_TruckID,var_BinID]),retractall(busy_cycles(var__)),assert(busy_cycles(3)),a(message(logger,inform(accepted(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(agree(var_TruckID,var_BinID),var_TruckID))),a(message(logger,inform(working(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(collected(var_TruckID,var_BinID),var_TruckID))),retractall(busy_cycles(var__)),a(message(logger,inform(ready(var_TruckID),var_TruckID)));format('[~w] REFUSED for ~w~n',[var_TruckID,var_BinID]),a(message(logger,inform(refused(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(refuse(var_TruckID,var_BinID),var_TruckID)))),fail.
+process_collect_orders(dummy):-clause(past(inform(collect(var_BinID),var__Meta,var_CC),var_T,var_CC),var__),\+clause(order_seen(var_T),var__),assert(order_seen(var_T)),clause(agent(var_TruckID),var__),format('Truck ~w | request: collect ~w~n',[var_TruckID,var_BinID]),(truck_available(dummy)->format('Truck ~w | decision: accept ~w~n',[var_TruckID,var_BinID]),retractall(busy_cycles(var__)),assert(busy_cycles(3)),a(message(logger,inform(accepted(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(agree(var_TruckID,var_BinID),var_TruckID))),a(message(logger,inform(working(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(collected(var_TruckID,var_BinID),var_TruckID))),retractall(busy_cycles(var__)),a(message(logger,inform(ready(var_TruckID),var_TruckID)));format('Truck ~w | decision: refuse ~w~n',[var_TruckID,var_BinID]),a(message(logger,inform(refused(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(refuse(var_TruckID,var_BinID),var_TruckID)))),fail.
 
-process_collect_orders(dummy):-clause(past(inform(collect(var_BinID),var_CC),var_T,var_CC),var__),\+clause(order_seen(var_T),var__),assert(order_seen(var_T)),clause(agent(var_TruckID),var__),format('[~w] request received for ~w~n',[var_TruckID,var_BinID]),(truck_available(dummy)->format('[~w] ACCEPTED for ~w~n',[var_TruckID,var_BinID]),retractall(busy_cycles(var__)),assert(busy_cycles(3)),a(message(logger,inform(accepted(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(agree(var_TruckID,var_BinID),var_TruckID))),a(message(logger,inform(working(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(collected(var_TruckID,var_BinID),var_TruckID))),retractall(busy_cycles(var__)),a(message(logger,inform(ready(var_TruckID),var_TruckID)));format('[~w] REFUSED for ~w~n',[var_TruckID,var_BinID]),a(message(logger,inform(refused(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(refuse(var_TruckID,var_BinID),var_TruckID)))),fail.
+process_collect_orders(dummy):-clause(past(inform(collect(var_BinID),var_CC),var_T,var_CC),var__),\+clause(order_seen(var_T),var__),assert(order_seen(var_T)),clause(agent(var_TruckID),var__),format('Truck ~w | request: collect ~w~n',[var_TruckID,var_BinID]),(truck_available(dummy)->format('Truck ~w | decision: accept ~w~n',[var_TruckID,var_BinID]),retractall(busy_cycles(var__)),assert(busy_cycles(3)),a(message(logger,inform(accepted(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(agree(var_TruckID,var_BinID),var_TruckID))),a(message(logger,inform(working(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(collected(var_TruckID,var_BinID),var_TruckID))),retractall(busy_cycles(var__)),a(message(logger,inform(ready(var_TruckID),var_TruckID)));format('Truck ~w | decision: refuse ~w~n',[var_TruckID,var_BinID]),a(message(logger,inform(refused(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(refuse(var_TruckID,var_BinID),var_TruckID)))),fail.
 
 process_collect_orders(dummy).
 
 evi(order_monitor(dummy)):-process_collect_orders(dummy).
 
 order_monitor(dummy).
-
-normalize_collect_request(request(collect(var_BinID),var__From),var_BinID).
-
-normalize_collect_request(request(collect(var_BinID),var__Meta,var__From),var_BinID).
-
-normalize_collect_request(request(collect(var_BinID)),var_BinID).
-
-normalize_collect_request(collect(var_BinID),var_BinID).
-
-handle_request_message(var_Msg):-normalize_collect_request(var_Msg,var_BinID),clause(agent(var_TruckID),var__),format('[~w] request received for ~w~n',[var_TruckID,var_BinID]),(truck_available(dummy)->format('[~w] ACCEPTED for ~w~n',[var_TruckID,var_BinID]),retractall(busy_cycles(var__)),assert(busy_cycles(3)),a(message(logger,inform(accepted(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(agree(var_TruckID,var_BinID),var_TruckID))),a(message(logger,inform(working(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(collected(var_TruckID,var_BinID),var_TruckID))),retractall(busy_cycles(var__)),a(message(logger,inform(ready(var_TruckID),var_TruckID)));format('[~w] REFUSED for ~w~n',[var_TruckID,var_BinID]),a(message(logger,inform(refused(var_TruckID,var_BinID),var_TruckID))),a(message(control_center,inform(refuse(var_TruckID,var_BinID),var_TruckID)))).
-
-eve(request_E(var_Msg)):-handle_request_message(var_Msg).
-
-eve(request_E(var_Msg,var__From)):-handle_request_message(var_Msg).
-
-eve(request_E(var_Msg,var__Meta,var__From)):-handle_request_message(var_Msg).
 
 :-dynamic receive/1.
 
@@ -129,15 +115,15 @@ call_inform(var_X,var_Ag,var_M,var_T):-asse_cosa(past_event(inform(var_X,var_M,v
 
 call_inform(var_X,var_Ag,var_T):-asse_cosa(past_event(inform(var_X,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(inform(var_X,var_Ag),var__,var_Ag)),assert(past(inform(var_X,var_Ag),var_Tp,var_Ag)),trigger_inform_handlers(var_X,none,var_Ag).
 
-trigger_inform_handlers(var_X,var_M,var_Ag):-catch(call(eve(inform_E(var_X,var_Ag))),_424489,true),catch(call(eve(inform_E(var_X,var_M,var_Ag))),_424517,true),catch(call(eve(inform_E(var_X))),_424541,true).
+trigger_inform_handlers(var_X,var_M,var_Ag):-catch(call(eve(inform_E(var_X,var_Ag))),_397703,true),catch(call(eve(inform_E(var_X,var_M,var_Ag))),_397731,true),catch(call(eve(inform_E(var_X))),_397755,true).
 
 call_refuse(var_X,var_Ag,var_T):-clause(agent(var_A),var__),asse_cosa(past_event(var_X,var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(var_X,var__,var_Ag)),assert(past(var_X,var_Tp,var_Ag)),a(message(var_Ag,reply(received(var_X),var_A))).
 
-call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_424253,var_Ontology,_424257),_424247),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_424291)),a(message(var_Ag,propose(var_A,[_424291],var_AgI))),retractall(ext_agent(var_Ag,_424329,var_Ontology,_424333)).
+call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_397467,var_Ontology,_397471),_397461),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_397505)),a(message(var_Ag,propose(var_A,[_397505],var_AgI))),retractall(ext_agent(var_Ag,_397543,var_Ontology,_397547)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_424127,var_Ontology,_424131),_424121),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_424197,var_Ontology,_424201)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_397341,var_Ontology,_397345),_397335),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_397411,var_Ontology,_397415)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_424015,var_Ontology,_424019),_424009),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_424071,var_Ontology,_424075)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_397229,var_Ontology,_397233),_397223),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_397285,var_Ontology,_397289)).
 
 call_accept_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(accepted_proposal(var_A,var_Mp,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(accepted_proposal(var_A,var_Mp,var_Ag),var__,var_Ag)),assert(past(accepted_proposal(var_A,var_Mp,var_Ag),var_Tp,var_Ag)).
 
@@ -145,7 +131,7 @@ call_reject_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(rejected_p
 
 call_failure(var_A,var_M,var_Ag,var_T):-asse_cosa(past_event(failed_action(var_A,var_M,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(failed_action(var_A,var_M,var_Ag),var__,var_Ag)),assert(past(failed_action(var_A,var_M,var_Ag),var_Tp,var_Ag)).
 
-call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_423579),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_423613),retractall(normal_action(var_A,var_Te,var_Ag)),true).
+call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_396793),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_396827),retractall(normal_action(var_A,var_Te,var_Ag)),true).
 
 external_refused_action_propose(var_A,var_Ag):-clause(not_executable_action_propose(var_A,var_Ag),var__).
 
@@ -153,17 +139,17 @@ evi(external_refused_action_propose(var_A,var_Ag)):-clause(agent(var_Ai),var__),
 
 refused_message(var_AgM,var_Con):-clause(eliminated_message(var_AgM,var__,var__,var_Con,var__),var__).
 
-refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_423395).
+refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_396609).
 
 evi(refused_message(var_AgM,var_Con)):-clause(agent(var_Ai),var__),a(message(var_AgM,inform(var_Con,motivation(refused_message),var_Ai))),retractall(eliminated_message(var_AgM,var__,var__,var_Con,var__)),retractall(eliminated_message(var_Con,var_AgM,motivation(conditions_not_verified))).
 
-send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_423243),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
+send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_396457),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
 
-gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_423191),learn_if(var_H,var_T,var_U).
+gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_396405),learn_if(var_H,var_T,var_U).
 
-evi(gest_learn(var_H)):-retractall(past(learn(var_H),_423067,_423069)),clause(agente(_423089,_423091,_423093,var_S),_423085),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
+evi(gest_learn(var_H)):-retractall(past(learn(var_H),_396281,_396283)),clause(agente(_396303,_396305,_396307,var_S),_396299),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
 
-cllearn:-clause(agente(_422861,_422863,_422865,var_S),_422857),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_422961,[]),repeat,read(_422961,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_422961).
+cllearn:-clause(agente(_396075,_396077,_396079,var_S),_396071),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_396175,[]),repeat,read(_396175,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_396175).
 
 send_msg_learn(var_T,var_A,var_Ag):-a(message(var_Ag,confirm(learn(var_T),var_A))).
 

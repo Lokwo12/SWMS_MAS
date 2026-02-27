@@ -35,6 +35,9 @@ random_pick(List, Pick) :-
     nth0(N, List, Pick).
 
 dispatch_request(BinID) :-
+    clause(inflight(BinID),_), !.
+
+dispatch_request(BinID) :-
     truck_pool(AllTrucks),
     ( clause(tried_trucks(BinID, Tried),_) -> true ; Tried = [] ),
     remove_seen(AllTrucks, Tried, Candidates0),
@@ -48,7 +51,9 @@ dispatch_request(BinID) :-
     random_pick(Candidates, Truck),
     retractall(last_try(BinID,_)),
     assert(last_try(BinID, Truck)),
-    format('[control_center] Requesting ~w to collect ~w (~w)~n', [Truck, BinID, Retries]),
+    retractall(inflight(BinID)),
+    assert(inflight(BinID)),
+    format('Control center | dispatch: truck=~w, bin=~w, mode=~w~n', [Truck, BinID, Retries]),
     clause(agent(CC),_),
     a(message(logger, inform(requesting(Truck, BinID, Retries), CC))),
     a(message(Truck, inform(collect(BinID), CC))).
@@ -57,12 +62,17 @@ process_full_events(dummy) :-
     clause(past(inform(full(BinID), _Meta, Sender), T, Sender),_),
     \+ clause(cc_seen(T),_),
     assert(cc_seen(T)),
-    format('[control_center] FULL alert received for ~w~n', [BinID]),
-    retractall(tried_trucks(BinID,_)),
-    assert(tried_trucks(BinID, [])),
-    clause(agent(CC),_),
-    a(message(logger, inform(full_received(BinID), CC))),
-    dispatch_request(BinID),
+    ( clause(awaiting(BinID),_) ->
+        true
+    ; format('Control center | alert: full received from ~w~n', [BinID]),
+      assert(awaiting(BinID)),
+      retractall(tried_trucks(BinID,_)),
+      assert(tried_trucks(BinID, [])),
+      retractall(inflight(BinID)),
+      clause(agent(CC),_),
+      a(message(logger, inform(full_received(BinID), CC))),
+      dispatch_request(BinID)
+    ),
     fail.
 process_full_events(dummy) :-
         clause(past(inform(full(BinID), Sender), T, Sender),_),
@@ -70,7 +80,7 @@ process_full_events(dummy) :-
         assert(cc_seen(T)),
         ( clause(awaiting(BinID),_) ->
                 true
-        ; format('[control_center] FULL alert received for ~w~n', [BinID]),
+        ; format('Control center | alert: full received from ~w~n', [BinID]),
             assert(awaiting(BinID)),
             retractall(tried_trucks(BinID,_)),
             assert(tried_trucks(BinID, [])),
@@ -85,8 +95,9 @@ process_truck_events(dummy) :-
     clause(past(inform(agree(Truck, BinID), _Meta, Truck), T, Truck),_),
     \+ clause(cc_seen(T),_),
     assert(cc_seen(T)),
-    format('[control_center] ~w accepted for ~w~n', [Truck, BinID]),
+    format('Control center | assigned: truck=~w, bin=~w~n', [Truck, BinID]),
     retractall(tried_trucks(BinID,_)),
+    retractall(inflight(BinID)),
     clause(agent(CC),_),
     a(message(logger, inform(assigned(Truck, BinID), CC))),
     fail.
@@ -94,8 +105,9 @@ process_truck_events(dummy) :-
     clause(past(inform(agree(Truck, BinID), Truck), T, Truck),_),
     \+ clause(cc_seen(T),_),
     assert(cc_seen(T)),
-    format('[control_center] ~w accepted for ~w~n', [Truck, BinID]),
+    format('Control center | assigned: truck=~w, bin=~w~n', [Truck, BinID]),
     retractall(tried_trucks(BinID,_)),
+    retractall(inflight(BinID)),
     clause(agent(CC),_),
     a(message(logger, inform(assigned(Truck, BinID), CC))),
     fail.
@@ -103,10 +115,11 @@ process_truck_events(dummy) :-
     clause(past(inform(refuse(Truck, BinID), _Meta, Truck), T, Truck),_),
     \+ clause(cc_seen(T),_),
     assert(cc_seen(T)),
-    format('[control_center] ~w refused for ~w, retrying...~n', [Truck, BinID]),
+    format('Control center | retry: truck=~w refused, bin=~w~n', [Truck, BinID]),
     ( clause(tried_trucks(BinID, Tried),_) -> true ; Tried = [] ),
     retractall(tried_trucks(BinID,_)),
     assert(tried_trucks(BinID, [Truck|Tried])),
+    retractall(inflight(BinID)),
     clause(agent(CC),_),
     a(message(logger, inform(refused(Truck, BinID), CC))),
     dispatch_request(BinID),
@@ -115,10 +128,11 @@ process_truck_events(dummy) :-
     clause(past(inform(refuse(Truck, BinID), Truck), T, Truck),_),
     \+ clause(cc_seen(T),_),
     assert(cc_seen(T)),
-    format('[control_center] ~w refused for ~w, retrying...~n', [Truck, BinID]),
+    format('Control center | retry: truck=~w refused, bin=~w~n', [Truck, BinID]),
     ( clause(tried_trucks(BinID, Tried),_) -> true ; Tried = [] ),
     retractall(tried_trucks(BinID,_)),
     assert(tried_trucks(BinID, [Truck|Tried])),
+    retractall(inflight(BinID)),
     clause(agent(CC),_),
     a(message(logger, inform(refused(Truck, BinID), CC))),
     dispatch_request(BinID),
@@ -127,23 +141,25 @@ process_truck_events(dummy) :-
     clause(past(inform(collected(Truck, BinID), _Meta, Truck), T, Truck),_),
     \+ clause(cc_seen(T),_),
     assert(cc_seen(T)),
-    format('[control_center] ~w collected ~w, sending clearance~n', [Truck, BinID]),
+    format('Control center | done: truck=~w collected bin=~w, clear sent~n', [Truck, BinID]),
     retractall(tried_trucks(BinID,_)),
     clause(agent(CC),_),
     a(message(logger, inform(completed(Truck, BinID), CC))),
     a(message(BinID, inform(cleared, CC))),
     retractall(awaiting(BinID)),
+    retractall(inflight(BinID)),
     fail.
 process_truck_events(dummy) :-
     clause(past(inform(collected(Truck, BinID), Truck), T, Truck),_),
     \+ clause(cc_seen(T),_),
     assert(cc_seen(T)),
-    format('[control_center] ~w collected ~w, sending clearance~n', [Truck, BinID]),
+    format('Control center | done: truck=~w collected bin=~w, clear sent~n', [Truck, BinID]),
     retractall(tried_trucks(BinID,_)),
     clause(agent(CC),_),
     a(message(logger, inform(completed(Truck, BinID), CC))),
     a(message(BinID, inform(cleared, CC))),
     retractall(awaiting(BinID)),
+    retractall(inflight(BinID)),
     fail.
 process_truck_events(dummy).
 
@@ -152,51 +168,3 @@ monitorI(dummy) :-
     process_truck_events(dummy).
 
 monitor(dummy).
-
-handle_control_message(Msg) :-
-    normalize_full(Msg, BinID),
-    ( clause(awaiting(BinID),_) ->
-        true
-    ; format('[control_center] FULL alert received for ~w~n', [BinID]),
-      assert(awaiting(BinID)),
-      retractall(tried_trucks(BinID,_)),
-      assert(tried_trucks(BinID, [])),
-      clause(agent(CC),_),
-      a(message(logger, inform(full_received(BinID), CC))),
-      dispatch_request(BinID)
-    ).
-
-handle_control_message(Msg) :-
-    normalize_agree(Msg, Truck, BinID),
-    format('[control_center] ~w accepted for ~w~n', [Truck, BinID]),
-    retractall(tried_trucks(BinID,_)),
-    clause(agent(CC),_),
-    a(message(logger, inform(assigned(Truck, BinID), CC))).
-
-handle_control_message(Msg) :-
-    normalize_refuse(Msg, Truck, BinID),
-    format('[control_center] ~w refused for ~w, retrying...~n', [Truck, BinID]),
-    ( clause(tried_trucks(BinID, Tried),_) -> true ; Tried = [] ),
-    retractall(tried_trucks(BinID,_)),
-    assert(tried_trucks(BinID, [Truck|Tried])),
-    clause(agent(CC),_),
-    a(message(logger, inform(refused(Truck, BinID), CC))),
-    dispatch_request(BinID).
-
-handle_control_message(Msg) :-
-    normalize_collected(Msg, Truck, BinID),
-    format('[control_center] ~w collected ~w, sending clearance~n', [Truck, BinID]),
-    retractall(tried_trucks(BinID,_)),
-    retractall(awaiting(BinID)),
-    clause(agent(CC),_),
-    a(message(logger, inform(completed(Truck, BinID), CC))),
-    a(message(BinID, inform(cleared, CC))).
-
-inform_EE(Msg) :-
-    handle_control_message(Msg).
-
-inform_EE(Msg, _From) :-
-    handle_control_message(Msg).
-
-inform_EE(Msg, _Meta, _From) :-
-    handle_control_message(Msg).

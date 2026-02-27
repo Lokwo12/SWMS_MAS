@@ -41,45 +41,33 @@ remove_seen([var_H|var_T],var_Seen,[var_H|var_R]):- \+member(var_H,var_Seen),rem
 
 random_pick(var_List,var_Pick):-length(var_List,var_L),var_L>0,random(0,var_L,var_N),nth0(var_N,var_List,var_Pick).
 
-dispatch_request(var_BinID):-truck_pool(var_AllTrucks),(clause(tried_trucks(var_BinID,var_Tried),var__)->true;var_Tried=[]),remove_seen(var_AllTrucks,var_Tried,var_Candidates0),(var_Candidates0=[]->retractall(tried_trucks(var_BinID,var__)),var_Candidates=var_AllTrucks,var_Retries=cycled;var_Candidates=var_Candidates0,var_Retries=normal),random_pick(var_Candidates,var_Truck),retractall(last_try(var_BinID,var__)),assert(last_try(var_BinID,var_Truck)),format('[control_center] Requesting ~w to collect ~w (~w)~n',[var_Truck,var_BinID,var_Retries]),clause(agent(var_CC),var__),a(message(logger,inform(requesting(var_Truck,var_BinID,var_Retries),var_CC))),a(message(var_Truck,inform(collect(var_BinID),var_CC))).
+dispatch_request(var_BinID):-clause(inflight(var_BinID),var__),!.
 
-process_full_events(dummy):-clause(past(inform(full(var_BinID),var__Meta,var_Sender),var_T,var_Sender),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('[control_center] FULL alert received for ~w~n',[var_BinID]),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[])),clause(agent(var_CC),var__),a(message(logger,inform(full_received(var_BinID),var_CC))),dispatch_request(var_BinID),fail.
+dispatch_request(var_BinID):-truck_pool(var_AllTrucks),(clause(tried_trucks(var_BinID,var_Tried),var__)->true;var_Tried=[]),remove_seen(var_AllTrucks,var_Tried,var_Candidates0),(var_Candidates0=[]->retractall(tried_trucks(var_BinID,var__)),var_Candidates=var_AllTrucks,var_Retries=cycled;var_Candidates=var_Candidates0,var_Retries=normal),random_pick(var_Candidates,var_Truck),retractall(last_try(var_BinID,var__)),assert(last_try(var_BinID,var_Truck)),retractall(inflight(var_BinID)),assert(inflight(var_BinID)),format('Control center | dispatch: truck=~w, bin=~w, mode=~w~n',[var_Truck,var_BinID,var_Retries]),clause(agent(var_CC),var__),a(message(logger,inform(requesting(var_Truck,var_BinID,var_Retries),var_CC))),a(message(var_Truck,inform(collect(var_BinID),var_CC))).
 
-process_full_events(dummy):-clause(past(inform(full(var_BinID),var_Sender),var_T,var_Sender),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),(clause(awaiting(var_BinID),var__)->true;format('[control_center] FULL alert received for ~w~n',[var_BinID]),assert(awaiting(var_BinID)),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[])),clause(agent(var_CC),var__),a(message(logger,inform(full_received(var_BinID),var_CC))),dispatch_request(var_BinID)),fail.
+process_full_events(dummy):-clause(past(inform(full(var_BinID),var__Meta,var_Sender),var_T,var_Sender),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),(clause(awaiting(var_BinID),var__)->true;format('Control center | alert: full received from ~w~n',[var_BinID]),assert(awaiting(var_BinID)),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[])),retractall(inflight(var_BinID)),clause(agent(var_CC),var__),a(message(logger,inform(full_received(var_BinID),var_CC))),dispatch_request(var_BinID)),fail.
+
+process_full_events(dummy):-clause(past(inform(full(var_BinID),var_Sender),var_T,var_Sender),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),(clause(awaiting(var_BinID),var__)->true;format('Control center | alert: full received from ~w~n',[var_BinID]),assert(awaiting(var_BinID)),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[])),clause(agent(var_CC),var__),a(message(logger,inform(full_received(var_BinID),var_CC))),dispatch_request(var_BinID)),fail.
 
 process_full_events(dummy).
 
-process_truck_events(dummy):-clause(past(inform(agree(var_Truck,var_BinID),var__Meta,var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('[control_center] ~w accepted for ~w~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),clause(agent(var_CC),var__),a(message(logger,inform(assigned(var_Truck,var_BinID),var_CC))),fail.
+process_truck_events(dummy):-clause(past(inform(agree(var_Truck,var_BinID),var__Meta,var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('Control center | assigned: truck=~w, bin=~w~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),retractall(inflight(var_BinID)),clause(agent(var_CC),var__),a(message(logger,inform(assigned(var_Truck,var_BinID),var_CC))),fail.
 
-process_truck_events(dummy):-clause(past(inform(agree(var_Truck,var_BinID),var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('[control_center] ~w accepted for ~w~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),clause(agent(var_CC),var__),a(message(logger,inform(assigned(var_Truck,var_BinID),var_CC))),fail.
+process_truck_events(dummy):-clause(past(inform(agree(var_Truck,var_BinID),var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('Control center | assigned: truck=~w, bin=~w~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),retractall(inflight(var_BinID)),clause(agent(var_CC),var__),a(message(logger,inform(assigned(var_Truck,var_BinID),var_CC))),fail.
 
-process_truck_events(dummy):-clause(past(inform(refuse(var_Truck,var_BinID),var__Meta,var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('[control_center] ~w refused for ~w, retrying...~n',[var_Truck,var_BinID]),(clause(tried_trucks(var_BinID,var_Tried),var__)->true;var_Tried=[]),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[var_Truck|var_Tried])),clause(agent(var_CC),var__),a(message(logger,inform(refused(var_Truck,var_BinID),var_CC))),dispatch_request(var_BinID),fail.
+process_truck_events(dummy):-clause(past(inform(refuse(var_Truck,var_BinID),var__Meta,var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('Control center | retry: truck=~w refused, bin=~w~n',[var_Truck,var_BinID]),(clause(tried_trucks(var_BinID,var_Tried),var__)->true;var_Tried=[]),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[var_Truck|var_Tried])),retractall(inflight(var_BinID)),clause(agent(var_CC),var__),a(message(logger,inform(refused(var_Truck,var_BinID),var_CC))),dispatch_request(var_BinID),fail.
 
-process_truck_events(dummy):-clause(past(inform(refuse(var_Truck,var_BinID),var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('[control_center] ~w refused for ~w, retrying...~n',[var_Truck,var_BinID]),(clause(tried_trucks(var_BinID,var_Tried),var__)->true;var_Tried=[]),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[var_Truck|var_Tried])),clause(agent(var_CC),var__),a(message(logger,inform(refused(var_Truck,var_BinID),var_CC))),dispatch_request(var_BinID),fail.
+process_truck_events(dummy):-clause(past(inform(refuse(var_Truck,var_BinID),var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('Control center | retry: truck=~w refused, bin=~w~n',[var_Truck,var_BinID]),(clause(tried_trucks(var_BinID,var_Tried),var__)->true;var_Tried=[]),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[var_Truck|var_Tried])),retractall(inflight(var_BinID)),clause(agent(var_CC),var__),a(message(logger,inform(refused(var_Truck,var_BinID),var_CC))),dispatch_request(var_BinID),fail.
 
-process_truck_events(dummy):-clause(past(inform(collected(var_Truck,var_BinID),var__Meta,var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('[control_center] ~w collected ~w, sending clearance~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),clause(agent(var_CC),var__),a(message(logger,inform(completed(var_Truck,var_BinID),var_CC))),a(message(var_BinID,inform(cleared,var_CC))),retractall(awaiting(var_BinID)),fail.
+process_truck_events(dummy):-clause(past(inform(collected(var_Truck,var_BinID),var__Meta,var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('Control center | done: truck=~w collected bin=~w, clear sent~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),clause(agent(var_CC),var__),a(message(logger,inform(completed(var_Truck,var_BinID),var_CC))),a(message(var_BinID,inform(cleared,var_CC))),retractall(awaiting(var_BinID)),retractall(inflight(var_BinID)),fail.
 
-process_truck_events(dummy):-clause(past(inform(collected(var_Truck,var_BinID),var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('[control_center] ~w collected ~w, sending clearance~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),clause(agent(var_CC),var__),a(message(logger,inform(completed(var_Truck,var_BinID),var_CC))),a(message(var_BinID,inform(cleared,var_CC))),retractall(awaiting(var_BinID)),fail.
+process_truck_events(dummy):-clause(past(inform(collected(var_Truck,var_BinID),var_Truck),var_T,var_Truck),var__),\+clause(cc_seen(var_T),var__),assert(cc_seen(var_T)),format('Control center | done: truck=~w collected bin=~w, clear sent~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),clause(agent(var_CC),var__),a(message(logger,inform(completed(var_Truck,var_BinID),var_CC))),a(message(var_BinID,inform(cleared,var_CC))),retractall(awaiting(var_BinID)),retractall(inflight(var_BinID)),fail.
 
 process_truck_events(dummy).
 
 evi(monitor(dummy)):-process_full_events(dummy),process_truck_events(dummy).
 
 monitor(dummy).
-
-handle_control_message(var_Msg):-normalize_full(var_Msg,var_BinID),(clause(awaiting(var_BinID),var__)->true;format('[control_center] FULL alert received for ~w~n',[var_BinID]),assert(awaiting(var_BinID)),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[])),clause(agent(var_CC),var__),a(message(logger,inform(full_received(var_BinID),var_CC))),dispatch_request(var_BinID)).
-
-handle_control_message(var_Msg):-normalize_agree(var_Msg,var_Truck,var_BinID),format('[control_center] ~w accepted for ~w~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),clause(agent(var_CC),var__),a(message(logger,inform(assigned(var_Truck,var_BinID),var_CC))).
-
-handle_control_message(var_Msg):-normalize_refuse(var_Msg,var_Truck,var_BinID),format('[control_center] ~w refused for ~w, retrying...~n',[var_Truck,var_BinID]),(clause(tried_trucks(var_BinID,var_Tried),var__)->true;var_Tried=[]),retractall(tried_trucks(var_BinID,var__)),assert(tried_trucks(var_BinID,[var_Truck|var_Tried])),clause(agent(var_CC),var__),a(message(logger,inform(refused(var_Truck,var_BinID),var_CC))),dispatch_request(var_BinID).
-
-handle_control_message(var_Msg):-normalize_collected(var_Msg,var_Truck,var_BinID),format('[control_center] ~w collected ~w, sending clearance~n',[var_Truck,var_BinID]),retractall(tried_trucks(var_BinID,var__)),retractall(awaiting(var_BinID)),clause(agent(var_CC),var__),a(message(logger,inform(completed(var_Truck,var_BinID),var_CC))),a(message(var_BinID,inform(cleared,var_CC))).
-
-eve(inform_E(var_Msg)):-handle_control_message(var_Msg).
-
-eve(inform_E(var_Msg,var__From)):-handle_control_message(var_Msg).
-
-eve(inform_E(var_Msg,var__Meta,var__From)):-handle_control_message(var_Msg).
 
 :-dynamic receive/1.
 
@@ -169,15 +157,15 @@ call_inform(var_X,var_Ag,var_M,var_T):-asse_cosa(past_event(inform(var_X,var_M,v
 
 call_inform(var_X,var_Ag,var_T):-asse_cosa(past_event(inform(var_X,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(inform(var_X,var_Ag),var__,var_Ag)),assert(past(inform(var_X,var_Ag),var_Tp,var_Ag)),trigger_inform_handlers(var_X,none,var_Ag).
 
-trigger_inform_handlers(var_X,var_M,var_Ag):-catch(call(eve(inform_E(var_X,var_Ag))),_518813,true),catch(call(eve(inform_E(var_X,var_M,var_Ag))),_518841,true),catch(call(eve(inform_E(var_X))),_518865,true).
+trigger_inform_handlers(var_X,var_M,var_Ag):-catch(call(eve(inform_E(var_X,var_Ag))),_484571,true),catch(call(eve(inform_E(var_X,var_M,var_Ag))),_484599,true),catch(call(eve(inform_E(var_X))),_484623,true).
 
 call_refuse(var_X,var_Ag,var_T):-clause(agent(var_A),var__),asse_cosa(past_event(var_X,var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(var_X,var__,var_Ag)),assert(past(var_X,var_Tp,var_Ag)),a(message(var_Ag,reply(received(var_X),var_A))).
 
-call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_518577,var_Ontology,_518581),_518571),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_518615)),a(message(var_Ag,propose(var_A,[_518615],var_AgI))),retractall(ext_agent(var_Ag,_518653,var_Ontology,_518657)).
+call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_484335,var_Ontology,_484339),_484329),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_484373)),a(message(var_Ag,propose(var_A,[_484373],var_AgI))),retractall(ext_agent(var_Ag,_484411,var_Ontology,_484415)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_518451,var_Ontology,_518455),_518445),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_518521,var_Ontology,_518525)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_484209,var_Ontology,_484213),_484203),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_484279,var_Ontology,_484283)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_518339,var_Ontology,_518343),_518333),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_518395,var_Ontology,_518399)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_484097,var_Ontology,_484101),_484091),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_484153,var_Ontology,_484157)).
 
 call_accept_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(accepted_proposal(var_A,var_Mp,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(accepted_proposal(var_A,var_Mp,var_Ag),var__,var_Ag)),assert(past(accepted_proposal(var_A,var_Mp,var_Ag),var_Tp,var_Ag)).
 
@@ -185,7 +173,7 @@ call_reject_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(rejected_p
 
 call_failure(var_A,var_M,var_Ag,var_T):-asse_cosa(past_event(failed_action(var_A,var_M,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(failed_action(var_A,var_M,var_Ag),var__,var_Ag)),assert(past(failed_action(var_A,var_M,var_Ag),var_Tp,var_Ag)).
 
-call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_517903),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_517937),retractall(normal_action(var_A,var_Te,var_Ag)),true).
+call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_483661),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_483695),retractall(normal_action(var_A,var_Te,var_Ag)),true).
 
 external_refused_action_propose(var_A,var_Ag):-clause(not_executable_action_propose(var_A,var_Ag),var__).
 
@@ -193,17 +181,17 @@ evi(external_refused_action_propose(var_A,var_Ag)):-clause(agent(var_Ai),var__),
 
 refused_message(var_AgM,var_Con):-clause(eliminated_message(var_AgM,var__,var__,var_Con,var__),var__).
 
-refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_517719).
+refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_483477).
 
 evi(refused_message(var_AgM,var_Con)):-clause(agent(var_Ai),var__),a(message(var_AgM,inform(var_Con,motivation(refused_message),var_Ai))),retractall(eliminated_message(var_AgM,var__,var__,var_Con,var__)),retractall(eliminated_message(var_Con,var_AgM,motivation(conditions_not_verified))).
 
-send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_517567),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
+send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_483325),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
 
-gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_517515),learn_if(var_H,var_T,var_U).
+gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_483273),learn_if(var_H,var_T,var_U).
 
-evi(gest_learn(var_H)):-retractall(past(learn(var_H),_517391,_517393)),clause(agente(_517413,_517415,_517417,var_S),_517409),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
+evi(gest_learn(var_H)):-retractall(past(learn(var_H),_483149,_483151)),clause(agente(_483171,_483173,_483175,var_S),_483167),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
 
-cllearn:-clause(agente(_517185,_517187,_517189,var_S),_517181),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_517285,[]),repeat,read(_517285,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_517285).
+cllearn:-clause(agente(_482943,_482945,_482947,var_S),_482939),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_483043,[]),repeat,read(_483043,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_483043).
 
 send_msg_learn(var_T,var_A,var_Ag):-a(message(var_Ag,confirm(learn(var_T),var_A))).
 

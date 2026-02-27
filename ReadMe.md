@@ -18,6 +18,21 @@ installed in the system.
 Then use the command that should open a multiple terminal 
 console in which every single agent shows its messages.
 
+## Operations
+
+Run from the project root:
+
+- Start MAS: `./startmas.sh`
+- Stop MAS: `./stopmas.sh`
+- Restart MAS: `./restartmas.sh`
+- Health check: `./healthcheck.sh`
+
+Optional environment variables:
+
+- Disable automatic startup health check: `AUTO_HEALTHCHECK=0 ./startmas.sh`
+- Change health check wait time (seconds): `HEALTHCHECK_WAIT=30 ./startmas.sh`
+- Run health check with custom wait: `WAIT_SECONDS=30 ./healthcheck.sh`
+
 ### TMUX shortcuts
 
 * ...

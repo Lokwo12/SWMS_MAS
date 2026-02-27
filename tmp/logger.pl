@@ -3,23 +3,17 @@ evi(heartbeat(dummy)):-clause(agent(var_LoggerID),var__),a(message(control_cente
 
 heartbeat(dummy).
 
-log_message(var_Data):-statistics(walltime,[var_T,var__]),format('[~2f] ~w~n',[var_T,var_Data]).
+log_message(var_Data):-statistics(walltime,[var_T,var__]),format('Log [~2f] ~w~n',[var_T,var_Data]).
 
-process_logs(dummy):-clause(past(inform(var_Data,var__Meta,var_From),var_T,var_From),var__),\+clause(log_seen(var_T),var__),assert(log_seen(var_T)),statistics(walltime,[var_Now,var__]),format('[~2f] from ~w -> ~w~n',[var_Now,var_From,var_Data]),fail.
+process_logs(dummy):-clause(past(inform(var_Data,var__Meta,var_From),var_T,var_From),var__),\+clause(log_seen(var_T),var__),assert(log_seen(var_T)),(var_Data=inform(var__,motivation(refused_message),var__)->true;var_Data=heartbeat(var__,var__)->true;statistics(walltime,[var_Now,var__]),format('Log flow [~2f] from=~w data=~w~n',[var_Now,var_From,var_Data])),fail.
 
-process_logs(dummy):-clause(past(inform(var_Data,var_From),var_T,var_From),var__),\+clause(log_seen(var_T),var__),assert(log_seen(var_T)),statistics(walltime,[var_Now,var__]),format('[~2f] from ~w -> ~w~n',[var_Now,var_From,var_Data]),fail.
+process_logs(dummy):-clause(past(inform(var_Data,var_From),var_T,var_From),var__),\+clause(log_seen(var_T),var__),assert(log_seen(var_T)),(var_Data=inform(var__,motivation(refused_message),var__)->true;var_Data=heartbeat(var__,var__)->true;statistics(walltime,[var_Now,var__]),format('Log flow [~2f] from=~w data=~w~n',[var_Now,var_From,var_Data])),fail.
 
 process_logs(dummy).
 
 evi(log_monitor(dummy)):-process_logs(dummy).
 
 log_monitor(dummy).
-
-eve(inform_E(var_Data)):-log_message(var_Data).
-
-eve(inform_E(var_Data,var__From)):-log_message(var_Data).
-
-eve(inform_E(var_Data,var__Meta,var__From)):-log_message(var_Data).
 
 :-dynamic receive/1.
 
@@ -109,15 +103,15 @@ call_inform(var_X,var_Ag,var_M,var_T):-asse_cosa(past_event(inform(var_X,var_M,v
 
 call_inform(var_X,var_Ag,var_T):-asse_cosa(past_event(inform(var_X,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(inform(var_X,var_Ag),var__,var_Ag)),assert(past(inform(var_X,var_Ag),var_Tp,var_Ag)),trigger_inform_handlers(var_X,none,var_Ag).
 
-trigger_inform_handlers(var_X,var_M,var_Ag):-catch(call(eve(inform_E(var_X,var_Ag))),_329503,true),catch(call(eve(inform_E(var_X,var_M,var_Ag))),_329531,true),catch(call(eve(inform_E(var_X))),_329555,true).
+trigger_inform_handlers(var_X,var_M,var_Ag):-catch(call(eve(inform_E(var_X,var_Ag))),_331333,true),catch(call(eve(inform_E(var_X,var_M,var_Ag))),_331361,true),catch(call(eve(inform_E(var_X))),_331385,true).
 
 call_refuse(var_X,var_Ag,var_T):-clause(agent(var_A),var__),asse_cosa(past_event(var_X,var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(var_X,var__,var_Ag)),assert(past(var_X,var_Tp,var_Ag)),a(message(var_Ag,reply(received(var_X),var_A))).
 
-call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_329267,var_Ontology,_329271),_329261),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_329305)),a(message(var_Ag,propose(var_A,[_329305],var_AgI))),retractall(ext_agent(var_Ag,_329343,var_Ontology,_329347)).
+call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_331097,var_Ontology,_331101),_331091),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_331135)),a(message(var_Ag,propose(var_A,[_331135],var_AgI))),retractall(ext_agent(var_Ag,_331173,var_Ontology,_331177)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_329141,var_Ontology,_329145),_329135),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_329211,var_Ontology,_329215)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_330971,var_Ontology,_330975),_330965),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_331041,var_Ontology,_331045)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_329029,var_Ontology,_329033),_329023),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_329085,var_Ontology,_329089)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_330859,var_Ontology,_330863),_330853),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_330915,var_Ontology,_330919)).
 
 call_accept_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(accepted_proposal(var_A,var_Mp,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(accepted_proposal(var_A,var_Mp,var_Ag),var__,var_Ag)),assert(past(accepted_proposal(var_A,var_Mp,var_Ag),var_Tp,var_Ag)).
 
@@ -125,7 +119,7 @@ call_reject_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(rejected_p
 
 call_failure(var_A,var_M,var_Ag,var_T):-asse_cosa(past_event(failed_action(var_A,var_M,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(failed_action(var_A,var_M,var_Ag),var__,var_Ag)),assert(past(failed_action(var_A,var_M,var_Ag),var_Tp,var_Ag)).
 
-call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_328593),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_328627),retractall(normal_action(var_A,var_Te,var_Ag)),true).
+call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_330423),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_330457),retractall(normal_action(var_A,var_Te,var_Ag)),true).
 
 external_refused_action_propose(var_A,var_Ag):-clause(not_executable_action_propose(var_A,var_Ag),var__).
 
@@ -133,17 +127,17 @@ evi(external_refused_action_propose(var_A,var_Ag)):-clause(agent(var_Ai),var__),
 
 refused_message(var_AgM,var_Con):-clause(eliminated_message(var_AgM,var__,var__,var_Con,var__),var__).
 
-refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_328409).
+refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_330239).
 
 evi(refused_message(var_AgM,var_Con)):-clause(agent(var_Ai),var__),a(message(var_AgM,inform(var_Con,motivation(refused_message),var_Ai))),retractall(eliminated_message(var_AgM,var__,var__,var_Con,var__)),retractall(eliminated_message(var_Con,var_AgM,motivation(conditions_not_verified))).
 
-send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_328257),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
+send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_330087),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
 
-gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_328205),learn_if(var_H,var_T,var_U).
+gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_330035),learn_if(var_H,var_T,var_U).
 
-evi(gest_learn(var_H)):-retractall(past(learn(var_H),_328081,_328083)),clause(agente(_328103,_328105,_328107,var_S),_328099),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
+evi(gest_learn(var_H)):-retractall(past(learn(var_H),_329911,_329913)),clause(agente(_329933,_329935,_329937,var_S),_329929),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
 
-cllearn:-clause(agente(_327875,_327877,_327879,var_S),_327871),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_327975,[]),repeat,read(_327975,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_327975).
+cllearn:-clause(agente(_329705,_329707,_329709,var_S),_329701),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_329805,[]),repeat,read(_329805,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_329805).
 
 send_msg_learn(var_T,var_A,var_Ag):-a(message(var_Ag,confirm(learn(var_T),var_A))).
 

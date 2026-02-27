@@ -13,16 +13,27 @@ mark_next_level(Current) :-
     retractall(fill_level(_)),
     assert(fill_level(Next)).
 
+should_print_level(Level) :-
+    ( clause(last_printed_level(Level),_) ->
+        fail
+    ; retractall(last_printed_level(_)),
+      assert(last_printed_level(Level)),
+      true
+    ).
+
 auto_fillI(dummy) :-
     clause(agent(BinID),_),
     current_level(Level),
         ( clause(full_alert_sent,_), Level = 100 ->
         a(message(control_center, inform(full(BinID), BinID)))
-        ; format('[~w] Filling: ~w%~n', [BinID, Level]),
+        ; ( should_print_level(Level) ->
+                format('Bin ~w | level: ~w%%~n', [BinID, Level])
+          ; true
+          ),
             a(message(logger, inform(status(BinID, Level), BinID))),
             ( Level = 100 ->
                     ( clause(full_alert_sent,_) -> true
-                    ; format('[~w] FULL reached -> alerting control_center~n', [BinID]),
+                    ; format('Bin ~w | alert: full, notifying control center~n', [BinID]),
                         a(message(control_center, inform(full(BinID), BinID))),
                         assert(full_alert_sent)
                     )
@@ -43,7 +54,8 @@ handle_cleared_message(Msg) :-
     retractall(fill_level(_)),
     assert(fill_level(0)),
     retractall(full_alert_sent),
-    format('[~w] Reset to 0%~n', [BinID]),
+    retractall(last_printed_level(_)),
+    format('Bin ~w | reset: level 0%%~n', [BinID]),
     a(message(logger, inform(reset(BinID), BinID))).
 
 inform_EE(Msg) :-

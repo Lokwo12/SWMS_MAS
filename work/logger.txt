@@ -6,21 +6,27 @@ heartbeat(dummy).
 
 log_message(Data) :-
     statistics(walltime,[T,_]),
-    format('[~2f] ~w~n', [T, Data]).
+    format('Log [~2f] ~w~n', [T, Data]).
 
 process_logs(dummy) :-
     clause(past(inform(Data, _Meta, From), T, From),_),
     \+ clause(log_seen(T),_),
     assert(log_seen(T)),
-    statistics(walltime,[Now,_]),
-    format('[~2f] from ~w -> ~w~n', [Now, From, Data]),
+        ( Data = inform(_,motivation(refused_message),_) -> true
+        ; Data = heartbeat(_,_) -> true
+        ; statistics(walltime,[Now,_]),
+            format('Log flow [~2f] from=~w data=~w~n', [Now, From, Data])
+        ),
     fail.
 process_logs(dummy) :-
     clause(past(inform(Data, From), T, From),_),
     \+ clause(log_seen(T),_),
     assert(log_seen(T)),
-    statistics(walltime,[Now,_]),
-    format('[~2f] from ~w -> ~w~n', [Now, From, Data]),
+        ( Data = inform(_,motivation(refused_message),_) -> true
+        ; Data = heartbeat(_,_) -> true
+        ; statistics(walltime,[Now,_]),
+            format('Log flow [~2f] from=~w data=~w~n', [Now, From, Data])
+        ),
     fail.
 process_logs(dummy).
 
@@ -28,12 +34,3 @@ log_monitorI(dummy) :-
     process_logs(dummy).
 
 log_monitor(dummy).
-
-inform_EE(Data) :-
-    log_message(Data).
-
-inform_EE(Data, _From) :-
-    log_message(Data).
-
-inform_EE(Data, _Meta, _From) :-
-    log_message(Data).

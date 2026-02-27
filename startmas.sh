@@ -16,6 +16,8 @@ TYPES_HOME=mas/types
 CONF_DIR=conf
 WAIT="sleep 8"
 LINDA_PORT=3010
+AUTO_HEALTHCHECK="${AUTO_HEALTHCHECK:-1}"
+HEALTHCHECK_WAIT="${HEALTHCHECK_WAIT:-20}"
 
 # --- ENVIRONMENT CHECK ---
 if ! command -v tmux &> /dev/null; then
@@ -99,12 +101,12 @@ if [ "$server_ready" -ne 1 ]; then
     exit 1
 fi
 
+tmux set-option -t DALI_session -g pane-border-status top
+tmux set-option -t DALI_session -g pane-border-format '#{pane_title}'
+tmux select-pane -t DALI_session.0 -T "LINDA_SERVER"
+
 # Keep endpoint file consistent for runtimes resolving paths from src/
 cp -f server.txt src/server.txt
-
-# --- LAUNCH USER AGENT ---
-echo "Launching User Agent..."
-tmux split-window -v -t DALI_session "$PROLOG --noinfo -l $DALI_HOME/active_user_wi.pl"
 
 # --- LAUNCH ALL MAS AGENTS ---
 for agent_file in $BUILD_HOME/*.txt; do
@@ -116,10 +118,17 @@ for agent_file in $BUILD_HOME/*.txt; do
 
     # Launch agent with exact bare name
     tmux split-window -v -t DALI_session "$CONF_DIR/startagent.sh $agent_name $PROLOG $DALI_HOME"
+    tmux select-pane -t DALI_session -T "$agent_name"
 
     tmux select-layout -t DALI_session tiled
     sleep 1
 done
+
+if [[ "$AUTO_HEALTHCHECK" == "1" && -x "$SCRIPT_DIR/healthcheck.sh" ]]; then
+    echo "Running health check in background..."
+    WAIT_SECONDS="$HEALTHCHECK_WAIT" "$SCRIPT_DIR/healthcheck.sh" DALI_session > "$SCRIPT_DIR/tmp/healthcheck.last.log" 2>&1 &
+    echo "Health check log: tmp/healthcheck.last.log"
+fi
 
 echo "All agents launched. Attaching tmux..."
 tmux select-layout -t DALI_session tiled

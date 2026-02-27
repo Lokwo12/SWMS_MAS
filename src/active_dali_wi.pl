@@ -702,7 +702,6 @@ ricmess:-clause(agente(Ag,Ind,_,_),_),
 ricmess0(Ag,Ind,AgM,IndM,Language,Ontology,Con):-
           asse_cosa(ext_agent(AgM,IndM,Ontology,Language)),
           in_noblock(message(Ind,Ag,IndM,AgM,Language,Ontology,Con)),
-          print('RECEIVED: '),print(message(Ind,Ag,IndM,AgM,Language,Ontology,Con)),nl,
           if(clause(receive(Con),_),chiama_con(AgM,IndM,Language,Ontology,Con),not_receivable_meta(AgM,IndM,Language,Ontology,Con)).
 
 chiama_con(AgM,IndM,Language,Ontology,Con):-if(receive(Con),true,not_receivable_message(AgM,IndM,Language,Ontology,Con)).
@@ -747,10 +746,79 @@ asserisci_ontologia(AgM,O):-
 
 % CONDIZIONE RICEZIONE MESSAGGI
 
-not_receivable_message(AgM,IndM,Language,Ontology,Con):-write('Eliminated message:conditions not verified for  '),write(Con),nl,write('From:'),write(AgM),write(':'),write(IndM),nl,write('Language:'),write(Language),nl,write('Ontology:'),write(Ontology),nl,assert(eliminated_message(AgM,Language,Ontology,Con,motivation(conditions_not_verified))).
+compact_msg(inform(Payload,_), Summary) :-
+        !,
+        compact_payload(Payload, Summary).
+compact_msg(inform(Payload,_,_), Summary) :-
+        !,
+        compact_payload(Payload, Summary).
+compact_msg(Payload, Summary) :-
+        compact_payload(Payload, Summary).
+
+compact_payload(Payload, msg(Functor, ArgsSummary)) :-
+        nonvar(Payload),
+        Payload =.. [Functor|Args],
+        compact_args(Args, ArgsSummary),
+        !.
+compact_payload(Payload, Payload).
+
+compact_args([], []).
+compact_args([A|R], [SA|SR]) :-
+        compact_arg(A, SA),
+        compact_args(R, SR).
+
+compact_arg(A, A) :-
+        ( atom(A) ; number(A) ),
+        !.
+compact_arg(A, list(Len)) :-
+        is_list(A),
+        length(A, Len),
+        !.
+compact_arg(A, term(Functor/Arity)) :-
+        compound(A),
+        functor(A, Functor, Arity),
+        !.
+compact_arg(A, A).
+
+drop_diagnostics(off).
+
+log_receive_drop(Summary, AgM, IndM) :-
+        drop_diagnostics(on),
+        !,
+        write('Dali receive drop: guard not satisfied, msg='),write(Summary),
+        write(', from='),write(AgM),write(':'),write(IndM),nl.
+log_receive_drop(_, _, _).
+
+log_receive_meta_drop(Summary, AgM, IndM) :-
+        drop_diagnostics(on),
+        !,
+        write('Dali receive drop: no matching meta-rule, msg='),write(Summary),
+        write(', from='),write(AgM),write(':'),write(IndM),nl.
+log_receive_meta_drop(_, _, _).
+
+log_send_drop(M, To) :-
+        drop_diagnostics(on),
+        !,
+        write('Dali send drop: guard conditions not satisfied for message: '),write(M),nl,
+        write('Dali send drop: to '),write(To),nl.
+log_send_drop(_, _).
+
+not_receivable_message(AgM,IndM,Language,Ontology,Con):-
+        ( Con = inform(collected(_,_),_)
+        ; Con = inform(working(_,_),_)
+        ; Con = inform(ready(_),_)
+        ; Con = inform(assigned(_,_),_)
+        ; Con = inform(completed(_,_),_)
+        ; Con = inform(heartbeat(_,_),_)
+        ->
+                true
+                                ; compact_msg(Con, Summary),
+                                  log_receive_drop(Summary, AgM, IndM),
+          assert(eliminated_message(AgM,Language,Ontology,Con,motivation(conditions_not_verified)))
+        ).
 
 
-not_receivable_meta(AgM,IndM,Language,Ontology,Con):-write('Eliminated message:not exists meta_rule for  '),write(Con),nl,write('From:'),write(AgM),write(':'),write(IndM),nl,assert(eliminated_message(AgM,Language,Ontology,Con,motivation(not_exists_meta_rule))).
+not_receivable_meta(AgM,IndM,Language,Ontology,Con):-compact_msg(Con, Summary),log_receive_meta_drop(Summary, AgM, IndM),assert(eliminated_message(AgM,Language,Ontology,Con,motivation(not_exists_meta_rule))).
 
 
 
@@ -989,8 +1057,18 @@ check_msg(X,T,Ag):-arg(1,X,To),arg(2,X,M),
               if(call(send(To,M)),(ver_az_int(X,T,Ag),!),not_sendable_message(To,M)).
 em_mess(X):-arg(1,X,To),arg(2,X,M),send_m0(To,M).
 
-not_sendable_message(To,M):-write('Eliminated message:conditions not verified for  '),write(M),nl,write('To:'),write(To),nl,
-assert(eliminated_message(M,To,motivation(conditions_not_verified))).
+not_sendable_message(To,M):-
+        ( M = inform(collected(_,_),_)
+        ; M = inform(working(_,_),_)
+        ; M = inform(ready(_),_)
+        ; M = inform(assigned(_,_),_)
+        ; M = inform(completed(_,_),_)
+        ; M = inform(heartbeat(_,_),_)
+        ->
+                true
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ; log_send_drop(M, To),
+          assert(eliminated_message(M,To,motivation(conditions_not_verified)))
+        ).
 
 send_m0(To,M):-go_var(M),clause(result_format(R),_),send_m(To,R).
 
