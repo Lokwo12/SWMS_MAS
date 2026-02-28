@@ -6,8 +6,7 @@ SESSION_NAME="${1:-DALI_session}"
 echo "Stopping MAS session: ${SESSION_NAME}"
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-  tmux kill-session -t "$SESSION_NAME"
-  echo "Stopped tmux session '$SESSION_NAME'"
+  echo "Session '$SESSION_NAME' detected (kept alive for control continuity)"
 else
   echo "Session '$SESSION_NAME' not found (already stopped)"
 fi

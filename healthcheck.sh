@@ -16,6 +16,11 @@ fi
 
 echo "Health check session: ${SESSION}"
 
+if ! pgrep -x sicstus >/dev/null 2>&1; then
+  echo "FAIL: no sicstus MAS processes are running"
+  exit 1
+fi
+
 if ! tmux has-session -t "$SESSION" 2>/dev/null; then
   echo "FAIL: tmux session '$SESSION' not found"
   exit 1

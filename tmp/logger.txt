@@ -8,24 +8,39 @@ log_message(Data) :-
     statistics(walltime,[T,_]),
     format('Log [~2f] ~w~n', [T, Data]).
 
+logger_noise(Data) :- Data = heartbeat(_,_).
+logger_noise(Data) :- Data = alive(_).
+logger_noise(Data) :- Data = inform(_,motivation(refused_message),_).
+logger_noise(Data) :- Data = inform(alive(_),_).
+
+should_print_log(From, Data) :-
+    ( clause(last_logged_data(From, Data),_) ->
+        fail
+    ; retractall(last_logged_data(From,_)),
+      assert(last_logged_data(From, Data)),
+      true
+    ).
+
 process_logs(dummy) :-
     clause(past(inform(Data, _Meta, From), T, From),_),
     \+ clause(log_seen(T),_),
     assert(log_seen(T)),
-        ( Data = inform(_,motivation(refused_message),_) -> true
-        ; Data = heartbeat(_,_) -> true
-        ; statistics(walltime,[Now,_]),
+        ( logger_noise(Data) -> true
+        ; should_print_log(From, Data) ->
+            statistics(walltime,[Now,_]),
             format('Log flow [~2f] from=~w data=~w~n', [Now, From, Data])
+        ; true
         ),
     fail.
 process_logs(dummy) :-
     clause(past(inform(Data, From), T, From),_),
     \+ clause(log_seen(T),_),
     assert(log_seen(T)),
-        ( Data = inform(_,motivation(refused_message),_) -> true
-        ; Data = heartbeat(_,_) -> true
-        ; statistics(walltime,[Now,_]),
+        ( logger_noise(Data) -> true
+        ; should_print_log(From, Data) ->
+            statistics(walltime,[Now,_]),
             format('Log flow [~2f] from=~w data=~w~n', [Now, From, Data])
+        ; true
         ),
     fail.
 process_logs(dummy).

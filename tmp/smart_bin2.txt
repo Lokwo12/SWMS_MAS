@@ -4,6 +4,29 @@ next_level(60, 80).
 next_level(80, 100).
 next_level(100, 100).
 
+fill_step_every(3).
+reset_cooldown_steps(10).
+
+tick_reset_cooldown(dummy) :-
+    clause(reset_pause(N),_),
+    N > 0,
+    N1 is N - 1,
+    retractall(reset_pause(_)),
+    assert(reset_pause(N1)), !.
+tick_reset_cooldown(dummy).
+
+reset_cooldown_active(dummy) :-
+    clause(reset_pause(N),_),
+    N > 0.
+
+allow_fill_step :-
+    ( clause(fill_tick(T),_) -> true ; (fill_step_every(N), T is N - 1) ),
+    T1 is T + 1,
+    retractall(fill_tick(_)),
+    assert(fill_tick(T1)),
+    fill_step_every(N),
+    0 is T1 mod N.
+
 current_level(Level) :-
     clause(fill_level(Level),_), !.
 current_level(0).
@@ -22,10 +45,17 @@ should_print_level(Level) :-
     ).
 
 auto_fillI(dummy) :-
+    tick_reset_cooldown(dummy),
+    reset_cooldown_active(dummy), !.
+
+auto_fillI(dummy) :-
+    \+ allow_fill_step, !.
+
+auto_fillI(dummy) :-
     clause(agent(BinID),_),
     current_level(Level),
         ( clause(full_alert_sent,_), Level = 100 ->
-        a(message(control_center, inform(full(BinID), BinID)))
+        true
         ; ( should_print_level(Level) ->
                 format('Bin ~w | level: ~w%%~n', [BinID, Level])
           ; true
@@ -50,11 +80,15 @@ normalize_cleared(cleared).
 
 handle_cleared_message(Msg) :-
     normalize_cleared(Msg),
+    clause(full_alert_sent,_),
     clause(agent(BinID),_),
     retractall(fill_level(_)),
     assert(fill_level(0)),
     retractall(full_alert_sent),
     retractall(last_printed_level(_)),
+    reset_cooldown_steps(Pause),
+    retractall(reset_pause(_)),
+    assert(reset_pause(Pause)),
     format('Bin ~w | reset: level 0%%~n', [BinID]),
     a(message(logger, inform(reset(BinID), BinID))).
 

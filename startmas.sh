@@ -18,6 +18,8 @@ WAIT="sleep 8"
 LINDA_PORT=3010
 AUTO_HEALTHCHECK="${AUTO_HEALTHCHECK:-1}"
 HEALTHCHECK_WAIT="${HEALTHCHECK_WAIT:-20}"
+NO_ATTACH="${NO_ATTACH:-0}"
+AGENT_START_STAGGER="${AGENT_START_STAGGER:-0.2}"
 
 # --- ENVIRONMENT CHECK ---
 if ! command -v tmux &> /dev/null; then
@@ -108,20 +110,30 @@ tmux select-pane -t DALI_session.0 -T "LINDA_SERVER"
 # Keep endpoint file consistent for runtimes resolving paths from src/
 cp -f server.txt src/server.txt
 
-# --- LAUNCH ALL MAS AGENTS ---
-for agent_file in $BUILD_HOME/*.txt; do
-    agent_name=$(basename "$agent_file" .txt)
+# --- LAUNCH ALL MAS AGENTS (smart bins first for fast dashboard visibility) ---
+launch_agent() {
+    local agent_name="$1"
     echo "Launching agent: $agent_name"
 
     # Generate proper config (conf/mas/agent_name.txt)
-    $CONF_DIR/makeconf.sh "$agent_name" "$DALI_HOME"
+    "$CONF_DIR/makeconf.sh" "$agent_name" "$DALI_HOME"
 
     # Launch agent with exact bare name
     tmux split-window -v -t DALI_session "$CONF_DIR/startagent.sh $agent_name $PROLOG $DALI_HOME"
     tmux select-pane -t DALI_session -T "$agent_name"
-
     tmux select-layout -t DALI_session tiled
-    sleep 1
+    sleep "$AGENT_START_STAGGER"
+}
+
+for agent_file in $BUILD_HOME/smart_bin*.txt; do
+    agent_name=$(basename "$agent_file" .txt)
+    launch_agent "$agent_name"
+done
+
+for agent_file in $BUILD_HOME/*.txt; do
+    agent_name=$(basename "$agent_file" .txt)
+    [[ "$agent_name" == smart_bin* ]] && continue
+    launch_agent "$agent_name"
 done
 
 if [[ "$AUTO_HEALTHCHECK" == "1" && -x "$SCRIPT_DIR/healthcheck.sh" ]]; then
@@ -132,4 +144,9 @@ fi
 
 echo "All agents launched. Attaching tmux..."
 tmux select-layout -t DALI_session tiled
+if [[ "$NO_ATTACH" == "1" ]]; then
+    echo "NO_ATTACH=1 set: MAS started in background tmux session DALI_session"
+    exit 0
+fi
+
 tmux attach -t DALI_session

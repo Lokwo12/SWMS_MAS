@@ -5,23 +5,17 @@ heartbeatI(dummy) :-
     ( heartbeat_log_needed(State) ->
         format('Truck ~w | state: ~w~n', [TruckID, State])
     ; true
-    ),
-    a(message(control_center, inform(alive(TruckID), TruckID))).
+    ).
 
 heartbeat(dummy).
 
 heartbeat_log_needed(State) :-
-    ( clause(last_heartbeat_state(State),_) -> SameState = true ; SameState = false ),
-    ( clause(heartbeat_count(C),_) -> true ; C = 0 ),
-    C1 is C + 1,
-    retractall(heartbeat_count(_)),
-    assert(heartbeat_count(C1)),
-    ( SameState == false ->
-        retractall(last_heartbeat_state(_)),
-        assert(last_heartbeat_state(State))
-    ; true
-    ),
-    ( SameState == false ; 0 is C1 mod 5 ).
+    ( clause(last_heartbeat_state(State),_) ->
+        fail
+    ; retractall(last_heartbeat_state(_)),
+      assert(last_heartbeat_state(State)),
+      true
+    ).
 
 availability_state(available) :-
     \+ clause(busy_cycles(N),_), !.
@@ -31,6 +25,12 @@ availability_state(available) :-
 availability_state(busy) :-
     clause(busy_cycles(N),_),
     N > 0.
+
+collection_duration_cycles(8).
+decision_delay_cycles(2).
+collection_start_delay_cycles(2).
+refuse_busy_cycles(4).
+accept_probability_percent(95).
 
 tick_busy(dummy) :-
     clause(busy_cycles(N),_),
@@ -42,54 +42,111 @@ tick_busy(dummy).
 
 truck_available(dummy) :-
     availability_state(available),
+    accept_probability_percent(P),
     random(0, 100, R),
-    R < 65.
+    R < P.
+
+schedule_decision(T, BinID) :-
+    decision_delay_cycles(Cycles),
+    retractall(decision_countdown(T, BinID, _)),
+    assert(decision_countdown(T, BinID, Cycles)).
+
+tick_decision_queue(dummy) :-
+    clause(decision_countdown(T, BinID, N),_),
+    N > 0,
+    N1 is N - 1,
+    retractall(decision_countdown(T, BinID, _)),
+    assert(decision_countdown(T, BinID, N1)),
+    fail.
+tick_decision_queue(dummy).
+
+tick_collection_start(dummy) :-
+    clause(collection_start_countdown(BinID, N),_),
+    N > 0,
+    N1 is N - 1,
+    retractall(collection_start_countdown(BinID, _)),
+    assert(collection_start_countdown(BinID, N1)),
+    fail.
+tick_collection_start(dummy).
+
+ensure_busy_at_least(Cycles) :-
+        ( clause(busy_cycles(N),_), N >= Cycles ->
+                true
+        ; retractall(busy_cycles(_)),
+            assert(busy_cycles(Cycles))
+        ).
+
+normalize_collect_msg(inform(collect(BinID), _Meta, _From), BinID).
+normalize_collect_msg(inform(collect(BinID), _From), BinID).
+normalize_collect_msg(inform(collect(BinID)), BinID).
+normalize_collect_msg(collect(BinID), BinID).
+normalize_collect_msg(inform(collect(BinID), _, _, _), BinID).
 
 process_collect_orders(dummy) :-
-    clause(past(inform(collect(BinID), _Meta, CC), T, CC),_),
-    \+ clause(order_seen(T),_),
-    assert(order_seen(T)),
+    clause(past(Msg, T, _Sender),_),
+    normalize_collect_msg(Msg, BinID),
+    \+ clause(order_seen(T, BinID),_),
+    assert(order_seen(T, BinID)),
     clause(agent(TruckID),_),
     format('Truck ~w | request: collect ~w~n', [TruckID, BinID]),
+    schedule_decision(T, BinID),
+    fail.
+process_collect_orders(dummy).
+
+process_pending_decisions(dummy) :-
+    clause(decision_countdown(T, BinID, 0),_),
+    clause(agent(TruckID),_),
     ( truck_available(dummy) ->
         format('Truck ~w | decision: accept ~w~n', [TruckID, BinID]),
         retractall(busy_cycles(_)),
-        assert(busy_cycles(3)),
+        collection_start_delay_cycles(StartDelay),
+        collection_duration_cycles(ServiceCycles),
+        TotalCycles is StartDelay + ServiceCycles,
+        assert(busy_cycles(TotalCycles)),
+        retractall(active_collection(_)),
+        assert(active_collection(BinID)),
+        retractall(collection_started(_)),
+        retractall(collection_start_countdown(BinID, _)),
+        assert(collection_start_countdown(BinID, StartDelay)),
         a(message(logger, inform(accepted(TruckID, BinID), TruckID))),
-        a(message(control_center, inform(agree(TruckID, BinID), TruckID))),
-        a(message(logger, inform(working(TruckID, BinID), TruckID))),
-        a(message(control_center, inform(collected(TruckID, BinID), TruckID))),
-        retractall(busy_cycles(_)),
-        a(message(logger, inform(ready(TruckID), TruckID)))
+        a(message(control_center, inform(agree(TruckID, BinID), TruckID)))
     ; format('Truck ~w | decision: refuse ~w~n', [TruckID, BinID]),
+            refuse_busy_cycles(RefCycles),
+            ensure_busy_at_least(RefCycles),
       a(message(logger, inform(refused(TruckID, BinID), TruckID))),
       a(message(control_center, inform(refuse(TruckID, BinID), TruckID)))
     ),
+    retractall(decision_countdown(T, BinID, _)),
     fail.
-process_collect_orders(dummy) :-
-        clause(past(inform(collect(BinID), CC), T, CC),_),
-        \+ clause(order_seen(T),_),
-        assert(order_seen(T)),
-        clause(agent(TruckID),_),
-        format('Truck ~w | request: collect ~w~n', [TruckID, BinID]),
-        ( truck_available(dummy) ->
-            format('Truck ~w | decision: accept ~w~n', [TruckID, BinID]),
-                retractall(busy_cycles(_)),
-                assert(busy_cycles(3)),
-                a(message(logger, inform(accepted(TruckID, BinID), TruckID))),
-                a(message(control_center, inform(agree(TruckID, BinID), TruckID))),
-                a(message(logger, inform(working(TruckID, BinID), TruckID))),
-                a(message(control_center, inform(collected(TruckID, BinID), TruckID))),
-                retractall(busy_cycles(_)),
-                a(message(logger, inform(ready(TruckID), TruckID)))
-        ; format('Truck ~w | decision: refuse ~w~n', [TruckID, BinID]),
-            a(message(logger, inform(refused(TruckID, BinID), TruckID))),
-            a(message(control_center, inform(refuse(TruckID, BinID), TruckID)))
-        ),
-        fail.
-process_collect_orders(dummy).
+process_pending_decisions(dummy).
+
+start_collectionI(dummy) :-
+    clause(active_collection(BinID),_),
+    clause(collection_start_countdown(BinID, 0),_),
+    \+ clause(collection_started(BinID),_),
+    clause(agent(TruckID),_),
+    assert(collection_started(BinID)),
+    a(message(logger, inform(working(TruckID, BinID), TruckID))).
+
+start_collection(dummy).
+
+complete_collectionI(dummy) :-
+    clause(active_collection(BinID),_),
+    clause(collection_started(BinID),_),
+    availability_state(available),
+    clause(agent(TruckID),_),
+    retractall(active_collection(_)),
+    retractall(collection_started(_)),
+    retractall(collection_start_countdown(BinID, _)),
+    a(message(control_center, inform(collected(TruckID, BinID), TruckID))),
+    a(message(logger, inform(ready(TruckID), TruckID))).
+
+complete_collection(dummy).
 
 order_monitorI(dummy) :-
-        process_collect_orders(dummy).
+    tick_decision_queue(dummy),
+    tick_collection_start(dummy),
+    process_collect_orders(dummy),
+    process_pending_decisions(dummy).
 
 order_monitor(dummy).

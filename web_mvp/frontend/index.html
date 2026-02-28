@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAS Control Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>MAS Control Dashboard</h1>
+        <p>Operational control and live visibility for SICStus + DALI MAS</p>
+      </div>
+      <div class="topbar-tools">
+        <div class="view-box">
+          <label for="viewMode">View</label>
+          <select id="viewMode">
+            <option value="standard">Standard</option>
+            <option value="presentation">Presentation</option>
+          </select>
+        </div>
+        <div class="endpoint-box">
+          <label for="apiBase">API Base URL</label>
+          <input id="apiBase" type="text" value="http://localhost:8080" />
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section id="presentationView" class="panel panel-wide presentation-only">
+        <div class="presentation-head">
+          <div>
+            <h2>Executive Operations View</h2>
+            <p class="presentation-sub">Custom, high-clarity snapshot for live operations monitoring.</p>
+          </div>
+          <div class="controls presentation-controls">
+            <button data-action="start">Start</button>
+            <button data-action="stop">Stop</button>
+            <button data-action="restart">Restart</button>
+            <button data-action="healthcheck">Healthcheck</button>
+          </div>
+        </div>
+
+        <div class="presentation-kpis">
+          <div class="presentation-kpi">
+            <span class="presentation-kpi-label">System</span>
+            <strong id="pvSystemState" class="presentation-kpi-value">-</strong>
+          </div>
+          <div class="presentation-kpi">
+            <span class="presentation-kpi-label">WebSocket</span>
+            <strong id="pvWsState" class="presentation-kpi-value">-</strong>
+          </div>
+          <div class="presentation-kpi">
+            <span class="presentation-kpi-label">Active Links</span>
+            <strong id="pvActiveLinks" class="presentation-kpi-value">0</strong>
+          </div>
+          <div class="presentation-kpi">
+            <span class="presentation-kpi-label">Pending Bins</span>
+            <strong id="pvPendingBins" class="presentation-kpi-value">0</strong>
+          </div>
+          <div class="presentation-kpi">
+            <span class="presentation-kpi-label">Collections (30 min)</span>
+            <strong id="pvCollections30" class="presentation-kpi-value">0</strong>
+          </div>
+          <div class="presentation-kpi">
+            <span class="presentation-kpi-label">Alerts</span>
+            <strong id="pvAlertMix" class="presentation-kpi-value">0/0/0</strong>
+          </div>
+        </div>
+
+        <div class="presentation-grid">
+          <div class="presentation-card">
+            <h3>Bin Fleet Status</h3>
+            <div id="pvBins" class="presentation-list"></div>
+          </div>
+          <div class="presentation-card">
+            <h3>Truck Fleet Status</h3>
+            <div id="pvTrucks" class="presentation-list"></div>
+          </div>
+        </div>
+
+        <div class="presentation-footer">
+          <span>Latest Event: <strong id="pvLastEvent">-</strong></span>
+          <span>Last Update: <strong id="pvUpdatedAt">-</strong></span>
+        </div>
+      </section>
+
+      <section class="panel standard-only">
+        <h2>System Control</h2>
+        <div class="controls">
+          <button data-action="start">Start</button>
+          <button data-action="stop">Stop</button>
+          <button data-action="restart">Restart</button>
+          <button data-action="healthcheck">Healthcheck</button>
+        </div>
+        <div class="status-grid">
+          <div>
+            <span class="label">Service</span>
+            <span id="svcName" class="value">-</span>
+          </div>
+          <div>
+            <span class="label">State</span>
+            <span id="svcState" class="value">-</span>
+          </div>
+          <div>
+            <span class="label">Session</span>
+            <span id="svcSession" class="value">-</span>
+          </div>
+          <div>
+            <span class="label">Timestamp</span>
+            <span id="svcTs" class="value">-</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel standard-only">
+        <h2>Operation Result</h2>
+        <pre id="opResult" class="console">No operation executed yet.</pre>
+      </section>
+
+      <section class="panel panel-wide standard-only">
+        <h2>Agent Status Board</h2>
+        <div class="board-grid">
+          <div>
+            <h3>Smart Bins</h3>
+            <div id="binBoard" class="status-board"></div>
+          </div>
+          <div>
+            <h3>Trucks</h3>
+            <div id="truckBoard" class="status-board"></div>
+          </div>
+        </div>
+        <div class="board-grid board-secondary">
+          <div id="ccCard" class="status-tile"></div>
+          <div id="loggerCard" class="status-tile"></div>
+        </div>
+      </section>
+
+      <section class="panel panel-wide standard-only">
+        <h2>Message Flow Links</h2>
+        <div class="flow-legend" aria-label="flow link legend">
+          <span class="legend-item"><span class="legend-dot legend-dot-active"></span> active link</span>
+          <span class="legend-item"><span class="legend-dot legend-dot-idle"></span> idle link</span>
+        </div>
+        <div class="flow-diag" aria-label="flow diagnostics">
+          <span class="flow-diag-chip">waiting: <strong id="diagWaitingCount">0</strong></span>
+          <span class="flow-diag-chip">refused: <strong id="diagRefusedCount">0</strong></span>
+          <span class="flow-diag-chip">blocked: <strong id="diagBlockedCount">0</strong></span>
+          <span class="flow-diag-chip">cooldown: <strong id="diagCooldownCount">0</strong></span>
+          <span class="flow-diag-chip">pending bins: <strong id="diagPendingBins">-</strong></span>
+          <span class="flow-diag-chip">last: <strong id="diagLastTs">-</strong></span>
+        </div>
+        <div id="flowTopology" class="flow-topology"></div>
+        <div id="flowLinks" class="flow-links"></div>
+      </section>
+
+      <section class="panel panel-wide standard-only">
+        <h2>Collection Reports</h2>
+        <div class="reports-grid">
+          <div class="report-card">
+            <div class="report-head">
+              <h3>Collections Over Time (last 30 min)</h3>
+              <span id="lineTotal" class="report-badge">0 total</span>
+            </div>
+            <canvas id="collectionLineChart" class="report-canvas" aria-label="Collections over time line chart"></canvas>
+          </div>
+          <div class="report-card">
+            <div class="report-head">
+              <h3>Collection Share by Truck</h3>
+              <span id="pieWindow" class="report-badge">live</span>
+            </div>
+            <canvas id="collectionPieChart" class="report-canvas" aria-label="Collection share pie chart"></canvas>
+            <div id="collectionPieLegend" class="pie-legend"></div>
+          </div>
+          <div class="report-card">
+            <div class="report-head">
+              <h3>SLA Stage Timings</h3>
+              <span id="slaWindow" class="report-badge">last 30 min</span>
+            </div>
+            <canvas id="slaStageChart" class="report-canvas report-canvas-small" aria-label="SLA stage timing bar chart"></canvas>
+            <div id="slaLegend" class="chart-legend" aria-label="SLA threshold legend"></div>
+            <div id="slaMetrics" class="report-metrics" aria-label="SLA stage timing metrics"></div>
+          </div>
+          <div class="report-card">
+            <div class="report-head">
+              <h3>Truck Utilization</h3>
+              <span id="utilWindow" class="report-badge">last 30 min</span>
+            </div>
+            <canvas id="utilBarChart" class="report-canvas report-canvas-small" aria-label="Truck utilization bar chart"></canvas>
+            <div id="utilLegend" class="chart-legend" aria-label="Utilization threshold legend"></div>
+            <div id="utilMetrics" class="report-metrics" aria-label="Truck utilization metrics"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-wide standard-only">
+        <h2>Realtime Events</h2>
+        <div class="stream-toolbar">
+          <button id="connectWs">Connect WS</button>
+          <button id="clearEvents">Clear</button>
+          <button id="exportJson">Export JSON</button>
+          <button id="exportCsv">Export CSV</button>
+          <button id="exportFilteredJson">Export Filtered JSON</button>
+          <button id="exportFilteredCsv">Export Filtered CSV</button>
+          <span id="wsState" class="badge">disconnected</span>
+        </div>
+        <div class="filters">
+          <label>
+            Type
+            <select id="typeFilter">
+              <option value="all">all</option>
+            </select>
+          </label>
+          <label>
+            Agent
+            <input id="agentFilter" type="text" placeholder="e.g. truck2" />
+          </label>
+          <div class="kpi">
+            <span>Total: <strong id="totalCount">0</strong></span>
+            <span>Visible: <strong id="visibleCount">0</strong></span>
+          </div>
+        </div>
+        <div id="eventCards" class="event-cards"></div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
