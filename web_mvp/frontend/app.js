@@ -37,6 +37,9 @@ const utilWindow = document.getElementById('utilWindow');
 const utilBarChart = document.getElementById('utilBarChart');
 const utilLegend = document.getElementById('utilLegend');
 const utilMetrics = document.getElementById('utilMetrics');
+const reportSummaryKpis = document.getElementById('reportSummaryKpis');
+const reportSummary = document.getElementById('reportSummary');
+const reportSummaryWindow = document.getElementById('reportSummaryWindow');
 const viewModeSelect = document.getElementById('viewMode');
 const pvSystemState = document.getElementById('pvSystemState');
 const pvWsState = document.getElementById('pvWsState');
@@ -60,7 +63,7 @@ let wsReconnectAttempts = 0;
 let wsShouldReconnect = true;
 const events = [];
 const knownTypes = new Set(['all']);
-const KNOWN_EVENT_TYPES = new Set(['full_received', 'requesting', 'assigned', 'refused', 'completed', 'reset', 'working', 'ready', 'bin_level', 'waiting', 'blocked_not_full', 'truck_state']);
+const KNOWN_EVENT_TYPES = new Set(['full_received', 'deferred_busy', 'requesting', 'assigned', 'refused', 'completed', 'reset', 'working', 'ready', 'bin_level', 'waiting', 'blocked_not_full', 'truck_state']);
 const FLOW_ACTIVE_MS = 7000;
 const WS_RECONNECT_BASE_MS = 1000;
 const WS_RECONNECT_MAX_MS = 10000;
@@ -133,28 +136,33 @@ function createFlowTopology() {
         </marker>
       </defs>
 
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="smart_bin1->control_center" x1="192" y1="84" x2="458" y2="182"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="smart_bin2->control_center" x1="500" y1="82" x2="500" y2="179"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="smart_bin3->control_center" x1="808" y1="84" x2="542" y2="182"></line>
+      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="smart_bin1->control_center" x1="170" y1="92" x2="405" y2="196"></line>
+      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="smart_bin2->control_center" x1="170" y1="210" x2="405" y2="210"></line>
+      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="smart_bin3->control_center" x1="170" y1="328" x2="405" y2="224"></line>
 
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->truck1" x1="458" y1="198" x2="192" y2="315"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->truck2" x1="500" y1="201" x2="500" y2="318"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->truck3" x1="542" y1="198" x2="808" y2="315"></line>
+      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->truck1" x1="455" y1="196" x2="690" y2="92"></line>
+      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->truck2" x1="455" y1="210" x2="690" y2="210"></line>
+      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->truck3" x1="455" y1="224" x2="690" y2="328"></line>
 
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck1->smart_bin1" x1="150" y1="318" x2="150" y2="82"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck1->smart_bin2" x1="192" y1="315" x2="492" y2="85"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck1->smart_bin3" x1="202" y1="311" x2="808" y2="87"></line>
+      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck1->smart_bin1" d="M690 90 C520 52, 340 52, 170 90"></path>
+      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck1->smart_bin2" d="M690 90 C520 96, 340 176, 170 210"></path>
+      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck1->smart_bin3" d="M690 90 C520 136, 340 296, 170 330"></path>
 
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck2->smart_bin1" x1="492" y1="315" x2="192" y2="87"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck2->smart_bin2" x1="500" y1="318" x2="500" y2="82"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck2->smart_bin3" x1="508" y1="315" x2="808" y2="87"></line>
+      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck2->smart_bin1" d="M690 210 C520 162, 340 96, 170 90"></path>
+      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck2->smart_bin2" d="M690 210 C520 210, 340 210, 170 210"></path>
+      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck2->smart_bin3" d="M690 210 C520 258, 340 324, 170 330"></path>
 
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck3->smart_bin1" x1="798" y1="311" x2="192" y2="87"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck3->smart_bin2" x1="808" y1="315" x2="508" y2="85"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck3->smart_bin3" x1="850" y1="318" x2="850" y2="82"></line>
+      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck3->smart_bin1" d="M690 330 C520 284, 340 124, 170 90"></path>
+      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck3->smart_bin2" d="M690 330 C520 324, 340 244, 170 210"></path>
+      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck3->smart_bin3" d="M690 330 C520 368, 340 368, 170 330"></path>
 
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->logger" x1="536" y1="189" x2="898" y2="189"></line>
+      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->logger" x1="430" y1="246" x2="430" y2="322"></line>
     </svg>
+
+    <div class="topology-lane lane-bins">Smart Bins</div>
+    <div class="topology-lane lane-control">Control Center</div>
+    <div class="topology-lane lane-trucks">Trucks</div>
+    <div class="topology-lane lane-logger">Logger</div>
 
     <div class="topology-node node-bin1"><span class="node-icon">🗑️</span><span class="node-label">smart_bin1</span></div>
     <div class="topology-node node-bin2"><span class="node-icon">🗑️</span><span class="node-label">smart_bin2</span></div>
@@ -435,11 +443,15 @@ function inferFlowLinks(evt) {
     touchFlowLink(`${bin}->control_center`, ts, type);
   }
 
+  if (type === 'deferred_busy' && bin) {
+    touchFlowLink(`${bin}->control_center`, ts, type);
+  }
+
   if (bin && truck && ['working', 'completed', 'refused'].includes(type)) {
     touchFlowLink(`${truck}->${bin}`, ts, type);
   }
 
-  if (['full_received', 'requesting', 'assigned', 'completed', 'refused', 'waiting', 'blocked_not_full'].includes(type)) {
+  if (['full_received', 'deferred_busy', 'requesting', 'assigned', 'completed', 'refused', 'waiting', 'blocked_not_full'].includes(type)) {
     touchFlowLink('control_center->logger', ts, type);
   }
 }
@@ -817,6 +829,11 @@ function fmtSecs(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function fmtPct(num, den) {
+  if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return '-';
+  return `${Math.round((num / den) * 100)}%`;
+}
+
 function renderCollectionReports() {
   if (!collectionLineChart || !collectionPieChart || !collectionPieLegend) return;
 
@@ -885,6 +902,19 @@ function renderCollectionReports() {
     .filter((x) => Number.isFinite(x.tsMs))
     .sort((a, b) => a.tsMs - b.tsMs);
 
+  const windowEvents = events
+    .map((evt) => ({ evt, tsMs: Date.parse(evt.ts || '') }))
+    .filter((x) => Number.isFinite(x.tsMs) && x.tsMs >= startMs && x.tsMs <= nowMs)
+    .map((x) => x.evt);
+
+  const fullReceivedWindow = windowEvents.filter((evt) => evt.type === 'full_received').length;
+  const requestingWindow = windowEvents.filter((evt) => evt.type === 'requesting').length;
+  const assignedWindow = windowEvents.filter((evt) => evt.type === 'assigned').length;
+  const refusedWindow = windowEvents.filter((evt) => evt.type === 'refused').length;
+  const completedWindowCount = windowEvents.filter((evt) => evt.type === 'completed').length;
+  const timeoutWindow = windowEvents.filter((evt) => evt.type === 'completed' && String(evt.data?.truck || '').toLowerCase() === 'timeout').length;
+  const deferredBusyWindow = windowEvents.filter((evt) => evt.type === 'deferred_busy').length;
+
   const stage = {
     fullToDispatch: [],
     dispatchToAssign: [],
@@ -921,6 +951,122 @@ function renderCollectionReports() {
   });
 
   if (slaWindow) slaWindow.textContent = 'last 30 min';
+
+  const cycleVals = stage.fullToComplete.filter((ms) => ms >= 0 && ms <= 60 * 60 * 1000);
+  const avgCycleMs = cycleVals.length ? cycleVals.reduce((acc, cur) => acc + cur, 0) / cycleVals.length : null;
+  const p95CycleMs = percentile(cycleVals, 95);
+  const slaHitCount = cycleVals.filter((ms) => ms <= 80 * 1000).length;
+  const completionRate = fmtPct(completedWindowCount, fullReceivedWindow);
+  const assignmentRate = fmtPct(assignedWindow, requestingWindow);
+  const refusalRate = fmtPct(refusedWindow, requestingWindow);
+  const timeoutRate = fmtPct(timeoutWindow, completedWindowCount);
+  const inProgressCount = Math.max(0, assignedWindow - completedWindowCount);
+  const assignmentRatio = requestingWindow > 0 ? assignedWindow / requestingWindow : null;
+  const completionRatio = fullReceivedWindow > 0 ? completedWindowCount / fullReceivedWindow : null;
+  const refusalRatio = requestingWindow > 0 ? refusedWindow / requestingWindow : null;
+  const timeoutRatio = completedWindowCount > 0 ? timeoutWindow / completedWindowCount : null;
+  const slaHitRatio = cycleVals.length > 0 ? slaHitCount / cycleVals.length : null;
+
+  const completedByTruckWindow = {};
+  windowEvents
+    .filter((evt) => evt.type === 'completed')
+    .forEach((evt) => {
+      const truck = evt.data?.truck || 'unknown';
+      completedByTruckWindow[truck] = (completedByTruckWindow[truck] || 0) + 1;
+    });
+  const topTruckEntry = Object.entries(completedByTruckWindow)
+    .filter(([truck]) => truck !== 'timeout')
+    .sort((a, b) => b[1] - a[1])[0];
+
+  if (reportSummaryWindow) reportSummaryWindow.textContent = 'last 30 min';
+  if (reportSummary) {
+    const summaryRows = [
+      {
+        name: 'Completion Rate',
+        value: completionRate,
+        note: `${completedWindowCount}/${fullReceivedWindow}`,
+        tone: completionRatio === null ? 'neutral' : (completionRatio >= 0.9 ? 'good' : (completionRatio >= 0.75 ? 'warn' : 'bad')),
+      },
+      {
+        name: 'SLA Hit ≤ 80s',
+        value: fmtPct(slaHitCount, cycleVals.length),
+        note: `${slaHitCount}/${cycleVals.length}`,
+        tone: slaHitRatio === null ? 'neutral' : (slaHitRatio >= 0.9 ? 'good' : (slaHitRatio >= 0.75 ? 'warn' : 'bad')),
+      },
+      {
+        name: 'Timeout Rate',
+        value: timeoutRate,
+        note: `${timeoutWindow}/${completedWindowCount}`,
+        tone: timeoutRatio === null ? 'neutral' : (timeoutRatio <= 0.05 ? 'good' : (timeoutRatio <= 0.15 ? 'warn' : 'bad')),
+      },
+      {
+        name: 'Refusal Rate',
+        value: refusalRate,
+        note: `${refusedWindow}/${requestingWindow}`,
+        tone: refusalRatio === null ? 'neutral' : (refusalRatio <= 0.1 ? 'good' : (refusalRatio <= 0.25 ? 'warn' : 'bad')),
+      },
+      {
+        name: 'In Progress',
+        value: String(inProgressCount),
+        note: 'assigned - completed',
+        tone: inProgressCount <= 1 ? 'good' : (inProgressCount <= 3 ? 'warn' : 'bad'),
+      },
+      {
+        name: 'Assignment Rate',
+        value: assignmentRate,
+        note: `${assignedWindow}/${requestingWindow}`,
+        tone: assignmentRatio === null ? 'neutral' : (assignmentRatio >= 0.9 ? 'good' : (assignmentRatio >= 0.7 ? 'warn' : 'bad')),
+      },
+      {
+        name: 'Cycle Time F→C',
+        value: `avg ${fmtSecs(avgCycleMs)}`,
+        note: `p95 ${fmtSecs(p95CycleMs)}`,
+        tone: avgCycleMs === null ? 'neutral' : (avgCycleMs <= 80 * 1000 ? 'good' : (avgCycleMs <= 120 * 1000 ? 'warn' : 'bad')),
+      },
+      {
+        name: 'Deferred (Busy)',
+        value: String(deferredBusyWindow),
+        note: 'all trucks busy',
+        tone: deferredBusyWindow === 0 ? 'good' : 'warn',
+      },
+      {
+        name: 'Demand',
+        value: String(fullReceivedWindow),
+        note: 'full alerts',
+        tone: 'neutral',
+      },
+      {
+        name: 'Dispatches',
+        value: String(requestingWindow),
+        note: 'attempts',
+        tone: 'neutral',
+      },
+      {
+        name: 'Top Truck',
+        value: topTruckEntry ? topTruckEntry[0] : '-',
+        note: topTruckEntry ? `${topTruckEntry[1]} completed` : '-',
+        tone: 'neutral',
+      },
+    ];
+
+    const topKpis = [
+      summaryRows[0],
+      summaryRows[1],
+      summaryRows[2],
+      summaryRows[3],
+    ];
+
+    if (reportSummaryKpis) {
+      reportSummaryKpis.innerHTML = topKpis
+        .map((row) => `<div class="summary-kpi summary-kpi-${row.tone}"><span class="summary-kpi-label">${row.name}</span><span class="summary-kpi-value">${row.value}</span><span class="summary-kpi-note">${row.note}</span></div>`)
+        .join('');
+    }
+
+    reportSummary.innerHTML = summaryRows
+      .map((row) => `<div class="metric-row metric-row-${row.tone}"><span class="metric-name">${row.name}</span><span class="metric-value">${row.value}</span><span class="metric-count">${row.note}</span></div>`)
+      .join('');
+  }
+
   if (slaMetrics) {
     const items = [
       ['Full → Dispatch', stage.fullToDispatch],
@@ -1066,7 +1212,7 @@ function updateBoardFromEvent(evt) {
     target.updatedAt = ts;
   };
 
-  if (['full_received', 'requesting', 'assigned', 'refused', 'completed', 'waiting', 'blocked_not_full'].includes(type)) {
+  if (['full_received', 'deferred_busy', 'requesting', 'assigned', 'refused', 'completed', 'waiting', 'blocked_not_full'].includes(type)) {
     setStateIfChanged(boardState.controlCenter, type);
   }
 
@@ -1106,6 +1252,9 @@ function updateBoardFromEvent(evt) {
 
   if (type === 'waiting') {
     flowDiagState.waiting += 1;
+    if (bin) flowDiagState.pendingBins.add(bin);
+    flowDiagState.lastTs = ts;
+  } else if (type === 'deferred_busy') {
     if (bin) flowDiagState.pendingBins.add(bin);
     flowDiagState.lastTs = ts;
   } else if (type === 'refused') {
@@ -1187,6 +1336,12 @@ function deriveEventFromText(text) {
 
   m = text.match(/blocked_not_full\(([^)]+)\)/i);
   if (m) return { type: 'blocked_not_full', data: { bin: m[1].trim() } };
+
+  m = text.match(/deferred_busy\(([^)]+)\)/i);
+  if (m) return { type: 'deferred_busy', data: { bin: m[1].trim() } };
+
+  m = text.match(/Control center\s*\|\s*deferred:\s*all trucks busy for bin=(\w+)/i);
+  if (m) return { type: 'deferred_busy', data: { bin: m[1].trim() } };
 
   m = text.match(/Control center\s*\|\s*done:\s*truck=(\w+) collected bin=(\w+)/i);
   if (m) return { type: 'completed', data: { truck: m[1].trim(), bin: m[2].trim() } };

@@ -19,11 +19,11 @@ normalize_collected(inform(collected(Truck, BinID)), Truck, BinID).
 normalize_collected(collected(Truck, BinID), Truck, BinID).
 
 truck_pool([truck1, truck2, truck3]).
-timeout_retry_cooldown_cycles(6).
-refuse_retry_cooldown_cycles(10).
-inflight_timeout_cycles(12).
-max_dispatch_timeouts(3).
-dispatch_delay_cycles(4).
+timeout_retry_cooldown_cycles(4).
+refuse_retry_cooldown_cycles(6).
+inflight_timeout_cycles(20).
+max_dispatch_timeouts(5).
+dispatch_delay_cycles(2).
 
 cc_log_in(From, Payload) :-
     format('Control center | IN  from=~w payload=~w~n', [From, Payload]).
@@ -117,6 +117,7 @@ tick_inflight_watchdog(dummy) :-
         cc_send(logger, inform(completed(timeout, BinID), CC)),
         cc_send_cleared(BinID),
         retractall(awaiting(BinID)),
+        retractall(assigned_bin(BinID,_)),
         retractall(bin_ready_for_collection(BinID)),
         clear_timeout_count(BinID)
     ; true ),
@@ -135,6 +136,20 @@ remove_seen([H|T], Seen, [H|R]) :-
     \+ member(H, Seen),
     remove_seen(T, Seen, R).
 
+truck_busy(Truck) :-
+    clause(assigned_bin(_, Truck),_).
+truck_busy(Truck) :-
+    clause(last_try(BinID, Truck),_),
+    clause(inflight(BinID),_).
+
+remove_busy([], []).
+remove_busy([H|T], R) :-
+    truck_busy(H),
+    remove_busy(T, R).
+remove_busy([H|T], [H|R]) :-
+    \+ truck_busy(H),
+    remove_busy(T, R).
+
 random_pick(List, Pick) :-
     length(List, L),
     L > 0,
@@ -152,6 +167,9 @@ dispatch_request(BinID) :-
     clause(inflight(BinID),_), !.
 
 dispatch_request(BinID) :-
+    clause(assigned_bin(BinID,_),_), !.
+
+dispatch_request(BinID) :-
     truck_pool(AllTrucks),
     ( clause(tried_trucks(BinID, Tried),_) -> true ; Tried = [] ),
     remove_seen(AllTrucks, Tried, Candidates0),
@@ -162,7 +180,14 @@ dispatch_request(BinID) :-
     ; Candidates = Candidates0,
       Retries = normal
     ),
-    random_pick(Candidates, Truck),
+    remove_busy(Candidates, IdleCandidates),
+        ( IdleCandidates = [] ->
+                cc_log_status(BinID, deferred_busy, 'Control center | deferred: all trucks busy for bin=~w, dispatching with fallback pool~n', [BinID]),
+                clause(agent(CC),_),
+                cc_send(logger, inform(deferred_busy(BinID), CC))
+        ; true ),
+    ( IdleCandidates = [] -> PickPool = Candidates ; PickPool = IdleCandidates ),
+    random_pick(PickPool, Truck),
     retractall(last_try(BinID,_)),
     assert(last_try(BinID, Truck)),
     retractall(inflight(BinID)),
@@ -176,6 +201,7 @@ dispatch_request(BinID) :-
 process_waiting_bins(dummy) :-
     clause(awaiting(BinID),_),
     \+ clause(inflight(BinID),_),
+    \+ clause(assigned_bin(BinID,_),_),
     clause(bin_ready_for_collection(BinID),_),
     ( clause(dispatch_countdown(BinID, D),_), D > 0 -> fail ; true ),
     retractall(dispatch_countdown(BinID,_)),
@@ -194,6 +220,7 @@ process_full_events(dummy) :-
         ( clause(bin_ready_for_collection(BinID),_) -> true ; assert(bin_ready_for_collection(BinID)) )
     ; cc_log_status(BinID, full_alert, 'Control center | alert: full received from ~w~n', [BinID]),
       assert(awaiting(BinID)),
+            retractall(assigned_bin(BinID,_)),
       retractall(tried_trucks(BinID,_)),
       assert(tried_trucks(BinID, [])),
       retractall(inflight(BinID)),
@@ -214,6 +241,7 @@ process_full_events(dummy) :-
                 ( clause(bin_ready_for_collection(BinID),_) -> true ; assert(bin_ready_for_collection(BinID)) )
         ; cc_log_status(BinID, full_alert, 'Control center | alert: full received from ~w~n', [BinID]),
             assert(awaiting(BinID)),
+            retractall(assigned_bin(BinID,_)),
             retractall(tried_trucks(BinID,_)),
             assert(tried_trucks(BinID, [])),
             retractall(bin_ready_for_collection(BinID)),
@@ -232,6 +260,8 @@ process_truck_events(dummy) :-
     assert(cc_seen(T, agree(Truck, BinID))),
     cc_log_in(Truck, inform(agree(Truck, BinID))),
     cc_log_status(BinID, assigned(Truck), 'Control center | assigned: truck=~w, bin=~w~n', [Truck, BinID]),
+    retractall(assigned_bin(BinID,_)),
+    assert(assigned_bin(BinID, Truck)),
     retractall(tried_trucks(BinID,_)),
     retractall(inflight(BinID)),
     clear_inflight_timer(BinID),
@@ -246,6 +276,8 @@ process_truck_events(dummy) :-
     assert(cc_seen(T, agree(Truck, BinID))),
     cc_log_in(Truck, inform(agree(Truck, BinID))),
     cc_log_status(BinID, assigned(Truck), 'Control center | assigned: truck=~w, bin=~w~n', [Truck, BinID]),
+    retractall(assigned_bin(BinID,_)),
+    assert(assigned_bin(BinID, Truck)),
     retractall(tried_trucks(BinID,_)),
     retractall(inflight(BinID)),
     clear_inflight_timer(BinID),
@@ -292,6 +324,7 @@ process_truck_events(dummy) :-
     assert(cc_seen(T, collected(Truck, BinID))),
     cc_log_in(Truck, inform(collected(Truck, BinID))),
     cc_log_status(BinID, done(Truck), 'Control center | done: truck=~w collected bin=~w, clear sent~n', [Truck, BinID]),
+    retractall(assigned_bin(BinID,_)),
     retractall(tried_trucks(BinID,_)),
     clause(agent(CC),_),
     cc_send(logger, inform(completed(Truck, BinID), CC)),
@@ -309,6 +342,7 @@ process_truck_events(dummy) :-
     assert(cc_seen(T, collected(Truck, BinID))),
     cc_log_in(Truck, inform(collected(Truck, BinID))),
     cc_log_status(BinID, done(Truck), 'Control center | done: truck=~w collected bin=~w, clear sent~n', [Truck, BinID]),
+    retractall(assigned_bin(BinID,_)),
     retractall(tried_trucks(BinID,_)),
     clause(agent(CC),_),
     cc_send(logger, inform(completed(Truck, BinID), CC)),

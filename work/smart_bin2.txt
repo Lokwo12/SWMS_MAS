@@ -7,6 +7,10 @@ next_level(100, 100).
 fill_step_every(3).
 reset_cooldown_steps(10).
 
+bin_fill_every(smart_bin1, 3).
+bin_fill_every(smart_bin2, 4).
+bin_fill_every(smart_bin3, 5).
+
 tick_reset_cooldown(dummy) :-
     clause(reset_pause(N),_),
     N > 0,
@@ -20,11 +24,12 @@ reset_cooldown_active(dummy) :-
     N > 0.
 
 allow_fill_step :-
-    ( clause(fill_tick(T),_) -> true ; (fill_step_every(N), T is N - 1) ),
+    clause(agent(BinID),_),
+    ( clause(fill_tick(T),_) -> true ; T = 0 ),
     T1 is T + 1,
     retractall(fill_tick(_)),
     assert(fill_tick(T1)),
-    fill_step_every(N),
+    ( bin_fill_every(BinID, N) -> true ; fill_step_every(N) ),
     0 is T1 mod N.
 
 current_level(Level) :-
@@ -57,7 +62,7 @@ auto_fillI(dummy) :-
         ( clause(full_alert_sent,_), Level = 100 ->
         true
         ; ( should_print_level(Level) ->
-                format('Bin ~w | level: ~w%%~n', [BinID, Level])
+                format('Bin ~w | level: ~w%~n', [BinID, Level])
           ; true
           ),
             a(message(logger, inform(status(BinID, Level), BinID))),

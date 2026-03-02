@@ -125,16 +125,68 @@ launch_agent() {
     sleep "$AGENT_START_STAGGER"
 }
 
-for agent_file in $BUILD_HOME/smart_bin*.txt; do
-    agent_name=$(basename "$agent_file" .txt)
-    launch_agent "$agent_name"
+reorder_tmux_panes() {
+    local session="$1"
+    local desired=(
+        "LINDA_SERVER"
+        "control_center"
+        "logger"
+        "smart_bin1"
+        "smart_bin2"
+        "smart_bin3"
+        "truck1"
+        "truck2"
+        "truck3"
+    )
+
+    local i
+    local target_title
+    local current_idx
+    for i in "${!desired[@]}"; do
+        target_title="${desired[$i]}"
+        current_idx="$(tmux list-panes -t "$session" -F '#{pane_index} #{pane_title}' | awk -v t="$target_title" '$2==t {print $1; exit}')"
+        if [[ -z "$current_idx" ]]; then
+            continue
+        fi
+        if [[ "$current_idx" != "$i" ]]; then
+            tmux swap-pane -s "$session.$current_idx" -t "$session.$i"
+        fi
+    done
+
+    tmux select-layout -t "$session" tiled
+}
+
+ordered_agents=(
+    "control_center"
+    "logger"
+    "smart_bin1"
+    "smart_bin2"
+    "smart_bin3"
+    "truck1"
+    "truck2"
+    "truck3"
+)
+
+for agent_name in "${ordered_agents[@]}"; do
+    if [[ -f "$BUILD_HOME/$agent_name.txt" ]]; then
+        launch_agent "$agent_name"
+    fi
 done
 
 for agent_file in $BUILD_HOME/*.txt; do
     agent_name=$(basename "$agent_file" .txt)
-    [[ "$agent_name" == smart_bin* ]] && continue
+    skip=0
+    for ordered in "${ordered_agents[@]}"; do
+        if [[ "$agent_name" == "$ordered" ]]; then
+            skip=1
+            break
+        fi
+    done
+    [[ "$skip" -eq 1 ]] && continue
     launch_agent "$agent_name"
 done
+
+reorder_tmux_panes DALI_session
 
 if [[ "$AUTO_HEALTHCHECK" == "1" && -x "$SCRIPT_DIR/healthcheck.sh" ]]; then
     echo "Running health check in background..."

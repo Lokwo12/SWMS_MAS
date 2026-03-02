@@ -30,6 +30,7 @@ BIN_RESET_LINE_PATTERN = re.compile(r"Bin\s+(\w+)\s*\|\s*reset:\s*", re.IGNORECA
 EVENT_TYPE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("bin_level", re.compile(r"status\(([^,]+),\s*([0-9]+)\)")),
     ("full_received", re.compile(r"full_received\(([^)]+)\)")),
+    ("deferred_busy", re.compile(r"deferred_busy\(([^)]+)\)")),
     ("requesting", re.compile(r"requesting\(([^,]+),\s*([^,]+),\s*([^)]+)\)")),
     ("assigned", re.compile(r"assigned\(([^,]+),\s*([^)]+)\)")),
     ("refused", re.compile(r"refused\(([^,]+),\s*([^)]+)\)")),
@@ -202,7 +203,7 @@ class EventStreamService:
                     continue
                 event_type = candidate_type
                 groups = [g.strip() for g in m.groups()]
-                if candidate_type in {"full_received", "reset", "ready"}:
+                if candidate_type in {"full_received", "reset", "ready", "deferred_busy"}:
                     key = "bin" if candidate_type != "ready" else "truck"
                     data[key] = groups[0]
                 elif candidate_type == "bin_level":

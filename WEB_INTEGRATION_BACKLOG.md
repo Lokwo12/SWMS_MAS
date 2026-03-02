@@ -342,3 +342,80 @@ A backlog item is done when:
 2. Implement A1/A2 skeleton with command allowlist.
 3. Expose start/stop/restart + status endpoints.
 4. Connect minimal UI control panel to these endpoints.
+
+---
+
+## 8) MAS Agent Mapping Tables
+
+### Roles
+
+| roles | agent name | responsibility |
+|---|---|---|
+| Coordinator | control_center | Receives full-bin alerts, selects trucks, manages retries/timeouts, and sends clear/reset commands after collection. |
+| Collector | truck1, truck2, truck3 | Accepts/refuses collection requests, performs collection lifecycle, reports agree/refuse/collected to control center. |
+| Sensor/Producer | smart_bin1, smart_bin2, smart_bin3 | Simulates fill-level progression, emits full alerts at 100%, and resets to 0 when cleared. |
+| Observer/Telemetry | logger | Receives domain events from all agents, prints deduplicated flow logs, and sends heartbeat/alive signal. |
+
+### Roles and Interactions
+
+| from | to | message/event |
+|---|---|---|
+| smart_bin1, smart_bin2, smart_bin3 | logger | `inform(status(BinID, Level), BinID)` |
+| smart_bin1, smart_bin2, smart_bin3 | control_center | `inform(full(BinID), BinID)` |
+| control_center | truck1, truck2, truck3 | `inform(collect(BinID), control_center)` |
+| truck1, truck2, truck3 | control_center | `inform(agree(TruckID, BinID), TruckID)` |
+| truck1, truck2, truck3 | control_center | `inform(refuse(TruckID, BinID), TruckID)` |
+| truck1, truck2, truck3 | control_center | `inform(collected(TruckID, BinID), TruckID)` |
+| truck1, truck2, truck3 | logger | `inform(accepted(TruckID, BinID), TruckID)` |
+| truck1, truck2, truck3 | logger | `inform(refused(TruckID, BinID), TruckID)` |
+| truck1, truck2, truck3 | logger | `inform(working(TruckID, BinID), TruckID)` |
+| truck1, truck2, truck3 | logger | `inform(ready(TruckID), TruckID)` |
+| control_center | logger | `inform(full_received(BinID), control_center)` |
+| control_center | logger | `inform(requesting(TruckID, BinID, Mode), control_center)` |
+| control_center | logger | `inform(assigned(TruckID, BinID), control_center)` |
+| control_center | logger | `inform(refused(TruckID, BinID), control_center)` |
+| control_center | logger | `inform(completed(TruckID, BinID), control_center)` / `inform(completed(timeout, BinID), control_center)` |
+| control_center | smart_bin1, smart_bin2, smart_bin3 | `inform(cleared, control_center)` |
+| smart_bin1, smart_bin2, smart_bin3 | logger | `inform(reset(BinID), BinID)` |
+| logger | control_center | `inform(alive(LoggerID), LoggerID)` |
+
+### Event Table
+
+| agent | event | type | source |
+|---|---|---|---|
+| smart_bin1, smart_bin2, smart_bin3 | `status(BinID, Level)` | Inform (outgoing) | `auto_fillI/1` periodic fill cycle |
+| smart_bin1, smart_bin2, smart_bin3 | `full(BinID)` | Inform (outgoing) | `auto_fillI/1` when level reaches 100% |
+| smart_bin1, smart_bin2, smart_bin3 | `cleared` | Inform (incoming) | `inform_EE/*` received from `control_center` |
+| smart_bin1, smart_bin2, smart_bin3 | `reset(BinID)` | Inform (outgoing) | `handle_cleared_message/1` after clear processing |
+| control_center | `full(BinID)` | Inform (incoming) | `process_full_events/1` from bin alerts |
+| control_center | `agree(TruckID, BinID)` | Inform (incoming) | `process_truck_events/1` from truck acceptance |
+| control_center | `refuse(TruckID, BinID)` | Inform (incoming) | `process_truck_events/1` from truck refusal |
+| control_center | `collected(TruckID, BinID)` | Inform (incoming) | `process_truck_events/1` completion callback |
+| control_center | `collect(BinID)` | Inform (outgoing) | `dispatch_request/1` via `cc_send_collect/2` |
+| control_center | `cleared` | Inform (outgoing) | `cc_send_cleared/1` after completion/timeout fallback |
+| truck1, truck2, truck3 | `collect(BinID)` | Inform (incoming) | `process_collect_orders/1` from control center |
+| truck1, truck2, truck3 | `agree(TruckID, BinID)` | Inform (outgoing) | `process_pending_decisions/1` when accepted |
+| truck1, truck2, truck3 | `refuse(TruckID, BinID)` | Inform (outgoing) | `process_pending_decisions/1` when refused |
+| truck1, truck2, truck3 | `collected(TruckID, BinID)` | Inform (outgoing) | `complete_collectionI/1` when service ends |
+| logger | `alive(LoggerID)` | Inform (outgoing) | `heartbeatI/1` heartbeat channel |
+| logger | `inform(Data, From)` stream | Inform (incoming) | `process_logs/1` over `past(...)` history |
+
+### Action Table
+
+| agent | action | description |
+|---|---|---|
+| control_center | `process_full_events/1` | Consumes full-bin alerts, marks bin awaiting, initializes dispatch state, and logs `full_received`. |
+| control_center | `dispatch_request/1` | Selects candidate truck (with busy/tried filtering), marks inflight, and sends `collect(BinID)`. |
+| control_center | `process_truck_events/1` | Handles truck `agree/refuse/collected` outcomes and updates assignment, retry, and completion state. |
+| control_center | `tick_inflight_watchdog/1` | Monitors inflight timeout, schedules retry, or forces timeout completion fallback after max retries. |
+| control_center | `process_waiting_bins/1` | Triggers dispatch for awaiting bins when dispatch/retry countdowns expire. |
+| truck1, truck2, truck3 | `process_collect_orders/1` | Reads incoming collect requests and enqueues decision countdown. |
+| truck1, truck2, truck3 | `process_pending_decisions/1` | Applies acceptance probability and emits `agree`/`refuse` plus logger telemetry. |
+| truck1, truck2, truck3 | `start_collectionI/1` | Emits `working` event when collection start delay reaches zero. |
+| truck1, truck2, truck3 | `complete_collectionI/1` | Emits `collected` to control center and `ready` to logger when collection completes. |
+| truck1, truck2, truck3 | `tick_busy/1` | Decrements truck busy cycles controlling availability state. |
+| smart_bin1, smart_bin2, smart_bin3 | `auto_fillI/1` | Advances fill level on schedule, emits status, and triggers full alert at 100%. |
+| smart_bin1, smart_bin2, smart_bin3 | `handle_cleared_message/1` | Resets fill level and cooldown after `cleared` command. |
+| smart_bin1, smart_bin2, smart_bin3 | `tick_reset_cooldown/1` | Advances post-reset pause before filling resumes. |
+| logger | `process_logs/1` | Consumes incoming informs, filters noise, deduplicates, and prints log flow lines. |
+| logger | `heartbeatI/1` | Sends periodic alive heartbeat to control center. |
