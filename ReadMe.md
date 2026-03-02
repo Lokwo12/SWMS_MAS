@@ -20,7 +20,7 @@ If SICStus is installed elsewhere, update `SICSTUS_HOME` in `startmas.sh`.
 
 From a terminal:
 
-`cd /path/to/Simple`
+`cd /path/to/SWMS_MAS`
 
 ### 3) Make scripts executable (first time only)
 
