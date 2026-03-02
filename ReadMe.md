@@ -252,3 +252,8 @@ Useful flags:
 3) Open:
 
 `http://localhost:5173`
+
+
+click the link below to watch how system runs in terminal console.
+https://youtu.be/umaZzvAig7w 
+
