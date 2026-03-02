@@ -76,52 +76,50 @@ Optional environment variables:
 - Run health check with custom wait: `WAIT_SECONDS=30 ./healthcheck.sh`
 
 
+## Web Base Launch (MVP Dashboard)
 
+The project includes a web control/monitoring MVP under `web_mvp/`.
 
-# DALI Advanced Examples
+### Option A: one-command launch (recommended)
 
-In this folder the example show how to define 
-classes of agents and agent instances, based on 
-sources files.
+From project root:
 
-You define first an agent class in the folder `mas/types'`
-then you can define as many instances you want,
-only limited by the resources of your machine,
-in the folder `mas/instances`
+- Start MAS + backend + frontend: `./run_all.sh`
+- Stop all services: `./stop_all.sh`
+- Full cleanup + relaunch: `./deep_restart.sh`
 
-## MAS startup
+This starts:
 
-Be sure to have the terminal multiplexer
-[tmux](https://github.com/tmux/tmux/wiki/Installing) 
-installed in the system.
+- MAS in tmux session `DALI_session`
+- Web backend + frontend in tmux session `WEB_MVP`
+- Dashboard at `http://localhost:5173`
 
-Then use the command that should open a multiple terminal 
-console in which every single agent shows its messages.
+Useful flags:
 
-## Operations
+- `START_MAS=0 ./run_all.sh` (launch web side only)
+- `AUTO_ATTACH_WEB=1 ./run_all.sh` (auto-attach `WEB_MVP` session)
+- `AUTO_OPEN_DASHBOARD=0 ./run_all.sh` (disable browser auto-open)
 
-Run from the project root:
+### Option B: manual launch
 
-- Start MAS: `./startmas.sh`
-- Stop MAS: `./stopmas.sh`
-- Restart MAS: `./restartmas.sh`
-- Health check: `./healthcheck.sh`
+1) Backend API:
 
-Optional environment variables:
+`cd web_mvp/backend`
 
-- Disable automatic startup health check: `AUTO_HEALTHCHECK=0 ./startmas.sh`
-- Change health check wait time (seconds): `HEALTHCHECK_WAIT=30 ./startmas.sh`
-- Run health check with custom wait: `WAIT_SECONDS=30 ./healthcheck.sh`
+`python3 -m venv .venv`
 
-### TMUX shortcuts
+`source .venv/bin/activate`
 
-* ...
-* ...
+`pip install -r requirements.txt`
 
-# Other advanced examples
+`uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload`
 
-## Mobile Robotics
+2) Frontend dashboard (new terminal):
 
-* [TurtleBot2 MAS Project](https://github.com/valent0ne/turtlebot2-mas) 
-* (more to come..)
+`cd web_mvp/frontend`
 
+`python3 -m http.server 5173`
+
+3) Open:
+
+`http://localhost:5173`
