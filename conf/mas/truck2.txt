@@ -1,6 +1,6 @@
 agent('tmp/truck2','truck2','no',italian,
       ['conf/communication'],
-      ['/home/studente/Simple/src/communication_fipa','/home/studente/Simple/src/learning','/home/studente/Simple/src/planasp'],
+      ['/home/studente/SWMS_MAS/src/communication_fipa','/home/studente/SWMS_MAS/src/learning','/home/studente/SWMS_MAS/src/planasp'],
       'no',
-      '/home/studente/Simple/src/onto/dali_onto.txt',
+      '/home/studente/SWMS_MAS/src/onto/dali_onto.txt',
       []).
