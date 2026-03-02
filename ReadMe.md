@@ -1,5 +1,5 @@
 
-# SMART WASTE MANAGEMENT SYSTEM (SWMS_MAS)
+# TITLE: Smart Waste Management System (SWMS_MAS)
 
 Is a multi-agent framework for modeling and analyzing intelligent urban waste-collection operations. The system formalizes waste management as a distributed coordination problem, where autonomous agents (smart bins, collection trucks, a control center, and a logger) interact through structured communication protocols to detect overflow conditions, negotiate service allocation, execute collection tasks, and restore normal operating states. By combining autonomous decision-making, retry and timeout policies, and event-level observability, SWMS_MAS provides a reproducible environment for studying robustness, scalability, and operational efficiency in cyber-physical municipal services. The platform is designed both as a research testbed for Multi-Agent Systems (MAS) methodologies and as a practical prototype for data-driven, resilient smart-city waste management.
 
