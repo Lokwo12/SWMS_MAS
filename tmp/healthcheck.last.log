@@ -1,5 +1,5 @@
 Health check session: DALI_session
 OK: all expected panes are present
-Waiting 20s for activity...
+Waiting 10s for activity...
 WARN: no lifecycle signals detected yet in logger pane
 Health check completed
