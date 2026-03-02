@@ -17,7 +17,8 @@ Is a multi-agent framework for modeling and analyzing intelligent urban waste-co
 - **Observability layer (current):** logger receives and prints filtered lifecycle messages; health script validates process/session/panes and lifecycle signals.
 - **Web integration layer (target wrapper):** Dashboard + Backend Orchestrator + WebSocket Gateway + Event Normalizer + Persistence/Audit, non-invasive to MAS core logic.
 
-## Agent role and Virtual Organization.
+### 1.1 Roles
+
 | roles | agent name | responsibility |
 |---|---|---|
 | Coordinator | control_center | Receives full-bin alerts, selects trucks, manages retries/timeouts, and sends clear/reset commands after collection. |
@@ -25,7 +26,33 @@ Is a multi-agent framework for modeling and analyzing intelligent urban waste-co
 | Sensor/Producer | smart_bin1, smart_bin2, smart_bin3 | Simulates fill-level progression, emits full alerts at 100%, and resets to 0 when cleared. |
 | Observer/Telemetry | logger | Receives domain events from all agents, prints deduplicated flow logs, and sends heartbeat/alive signal. |
 
-### Roles and Interactions
+## 1.2 Agent role and Virtual Organization.
+
+**Organization type:** 
+centralized coordination with distributed autonomous executors.
+
+- **Control Center (Coordinator role):** 
+- *Responsibilities:* receive full alerts, maintain bin queues, choose trucks, handle refuse/timeout, issue cleared, emit lifecycle logs.
+- *Internal state:* awaiting bins, assigned truck, tried trucks, inflight timers, retry countdown, timeout count.
+
+- *Safety behavior:* fallback completion after repeated inflight timeouts.
+- 
+**Smart Bin (Sensor/Requester role, x3):**
+
+- *Responsibilities:* simulate fill progression, publish status, raise full once at 100%, wait for cleared, reset to 0 with cooldown.
+- *Heterogeneity:* different fill rates per bin (3/4/5 tick cadence).
+
+**Truck (Collector/Negotiator role, x3):**
+
+- *Responsibilities:* receive collect order, make probabilistic accept/refuse decision, become busy during service, notify collected and ready.
+- *Behavior constraints:*  decision delay, collection-start delay, service duration, temporary busy on refusal.
+  
+**Logger (Observer role):**
+- *Responsibilities:* receive system events, suppress noise/duplicates, print lifecycle trace, heartbeat to control center.
+
+
+
+### 1.3 Roles and Interactions
 
 | from | to | message/event |
 |---|---|---|
@@ -47,6 +74,37 @@ Is a multi-agent framework for modeling and analyzing intelligent urban waste-co
 | control_center | smart_bin1, smart_bin2, smart_bin3 | `inform(cleared, control_center)` |
 | smart_bin1, smart_bin2, smart_bin3 | logger | `inform(reset(BinID), BinID)` |
 | logger | control_center | `inform(alive(LoggerID), LoggerID)` |
+
+### 1.4 Event Table
+
+
+| agent | event | type (external/internal) | source |
+|---|---|---|---|
+| smart_bin1, smart_bin2, smart_bin3 | `status(BinID, Level)` | External (outgoing message) | `auto_fillI/1` periodic fill cycle |
+| smart_bin1, smart_bin2, smart_bin3 | `full(BinID)` | External (outgoing message) | `auto_fillI/1` when level reaches 100% |
+| smart_bin1, smart_bin2, smart_bin3 | `cleared` | External (incoming message) | `inform_EE/*` received from `control_center` |
+| smart_bin1, smart_bin2, smart_bin3 | `reset(BinID)` | External (outgoing message) | `handle_cleared_message/1` after clear processing |
+| smart_bin1, smart_bin2, smart_bin3 | `fill_step_allowed` | Internal (timer/state trigger) | `allow_fill_step/0` + `fill_tick` cadence |
+| smart_bin1, smart_bin2, smart_bin3 | `reset_cooldown_active` | Internal (timer/state trigger) | `tick_reset_cooldown/1` + `reset_pause` |
+| control_center | `full(BinID)` | External (incoming message) | `process_full_events/1` from bin alerts |
+| control_center | `agree(TruckID, BinID)` | External (incoming message) | `process_truck_events/1` from truck acceptance |
+| control_center | `refuse(TruckID, BinID)` | External (incoming message) | `process_truck_events/1` from truck refusal |
+| control_center | `collected(TruckID, BinID)` | External (incoming message) | `process_truck_events/1` completion callback |
+| control_center | `collect(BinID)` | External (outgoing message) | `dispatch_request/1` via `cc_send_collect/2` |
+| control_center | `cleared` | External (outgoing message) | `cc_send_cleared/1` after completion/timeout fallback |
+| control_center | `dispatch_countdown_elapsed` | Internal (timer/state trigger) | `tick_dispatch_queue/1` + `process_waiting_bins/1` |
+| control_center | `retry_countdown_elapsed` | Internal (timer/state trigger) | `tick_retry_queue/1` + `process_waiting_bins/1` |
+| control_center | `inflight_timeout` | Internal (watchdog trigger) | `tick_inflight_watchdog/1` |
+| truck1, truck2, truck3 | `collect(BinID)` | External (incoming message) | `process_collect_orders/1` from control center |
+| truck1, truck2, truck3 | `agree(TruckID, BinID)` | External (outgoing message) | `process_pending_decisions/1` when accepted |
+| truck1, truck2, truck3 | `refuse(TruckID, BinID)` | External (outgoing message) | `process_pending_decisions/1` when refused |
+| truck1, truck2, truck3 | `collected(TruckID, BinID)` | External (outgoing message) | `complete_collectionI/1` when service ends |
+| truck1, truck2, truck3 | `decision_countdown_elapsed` | Internal (timer/state trigger) | `tick_decision_queue/1` + `process_pending_decisions/1` |
+| truck1, truck2, truck3 | `collection_start_elapsed` | Internal (timer/state trigger) | `tick_collection_start/1` + `start_collectionI/1` |
+| logger | `alive(LoggerID)` | External (outgoing message) | `heartbeatI/1` heartbeat channel |
+| logger | `inform(Data, From)` stream | External (incoming message) | `process_logs/1` over `past(...)` history |
+| logger | `log_seen(T)` dedup gate | Internal (state trigger) | `process_logs/1` seen-event filtering |
+
 
 ### Action Table
 
