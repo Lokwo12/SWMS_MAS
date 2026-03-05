@@ -1,5 +1,5 @@
-agent('tmp/control_center','control_center','no',italian,
-      ['conf/communication'],
+agent('/home/studente/SWMS_MAS/tmp/control_center','control_center','no',italian,
+      ['/home/studente/SWMS_MAS/conf/communication'],
       ['/home/studente/SWMS_MAS/src/communication_fipa','/home/studente/SWMS_MAS/src/learning','/home/studente/SWMS_MAS/src/planasp'],
       'no',
       '/home/studente/SWMS_MAS/src/onto/dali_onto.txt',

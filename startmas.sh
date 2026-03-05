@@ -5,15 +5,16 @@ shopt -s nullglob
 clear
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # --- USER CONFIG ---
 SICSTUS_HOME=/usr/local/sicstus4.6.0
 DALI_HOME="${DALI_HOME:-$SCRIPT_DIR/src}"
 PROLOG="$SICSTUS_HOME/bin/sicstus"
-BUILD_HOME=build
-INSTANCES_HOME=mas/instances
-TYPES_HOME=mas/types
-CONF_DIR=conf
+BUILD_HOME="$SCRIPT_DIR/build"
+INSTANCES_HOME="$SCRIPT_DIR/mas/instances"
+TYPES_HOME="$SCRIPT_DIR/mas/types"
+CONF_DIR="$SCRIPT_DIR/conf"
 WAIT="sleep 8"
 LINDA_PORT=3010
 AUTO_HEALTHCHECK="${AUTO_HEALTHCHECK:-1}"
