@@ -82,14 +82,16 @@ fi
 # --- START LINDA SERVER ---
 echo "Starting LINDA Server..."
 server_ready=0
+server_pane_id=""
 for _ in $(seq 1 10); do
     srvcmd="$PROLOG --noinfo -l $DALI_HOME/active_server_wi.pl --goal \"go(${LINDA_PORT},'server.txt').\""
     tmux new-session -d -s DALI_session -n "DALI_MAS" "$srvcmd"
+    server_pane_id="$(tmux list-panes -t DALI_session -F '#{pane_id}' | head -n1)"
 
     echo "Waiting for LINDA Server on port ${LINDA_PORT}..."
     $WAIT
 
-    if tmux capture-pane -pt DALI_session.0 -S -80 | grep -Eq "SPIO_E_NET_ADDRINUSE|goal failed"; then
+    if tmux capture-pane -pt "$server_pane_id" -S -80 | grep -Eq "SPIO_E_NET_ADDRINUSE|goal failed"; then
         tmux kill-session -t DALI_session 2>/dev/null || true
         LINDA_PORT=$((LINDA_PORT + 1))
         continue
@@ -106,7 +108,7 @@ fi
 
 tmux set-option -t DALI_session -g pane-border-status top
 tmux set-option -t DALI_session -g pane-border-format '#{pane_title}'
-tmux select-pane -t DALI_session.0 -T "LINDA_SERVER"
+tmux select-pane -t "$server_pane_id" -T "LINDA_SERVER"
 
 # Keep endpoint file consistent for runtimes resolving paths from src/
 cp -f server.txt src/server.txt
@@ -140,17 +142,30 @@ reorder_tmux_panes() {
         "truck3"
     )
 
+    local first_index
+    first_index="$(tmux list-panes -t "$session" -F '#{pane_index}' | sort -n | head -n1)"
+    [[ -z "$first_index" ]] && return 0
+
     local i
     local target_title
-    local current_idx
+    local current_pane_id
+    local target_pane_id
+    local target_idx
     for i in "${!desired[@]}"; do
         target_title="${desired[$i]}"
-        current_idx="$(tmux list-panes -t "$session" -F '#{pane_index} #{pane_title}' | awk -v t="$target_title" '$2==t {print $1; exit}')"
-        if [[ -z "$current_idx" ]]; then
+        current_pane_id="$(tmux list-panes -t "$session" -F '#{pane_id}|#{pane_title}' | awk -F '|' -v t="$target_title" '$2==t {print $1; exit}')"
+        if [[ -z "$current_pane_id" ]]; then
             continue
         fi
-        if [[ "$current_idx" != "$i" ]]; then
-            tmux swap-pane -s "$session.$current_idx" -t "$session.$i"
+
+        target_idx=$((first_index + i))
+        target_pane_id="$(tmux list-panes -t "$session" -F '#{pane_index}|#{pane_id}' | awk -F '|' -v idx="$target_idx" '$1==idx {print $2; exit}')"
+        if [[ -z "$target_pane_id" ]]; then
+            continue
+        fi
+
+        if [[ "$current_pane_id" != "$target_pane_id" ]]; then
+            tmux swap-pane -s "$current_pane_id" -t "$target_pane_id" 2>/dev/null || true
         fi
     done
 
@@ -158,8 +173,8 @@ reorder_tmux_panes() {
 }
 
 ordered_agents=(
-    "control_center"
     "logger"
+    "control_center"
     "smart_bin1"
     "smart_bin2"
     "smart_bin3"
