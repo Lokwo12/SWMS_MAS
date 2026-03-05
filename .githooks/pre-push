@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MAX_SIZE_BYTES=$((95 * 1024 * 1024))
+ZERO_SHA="0000000000000000000000000000000000000000"
+blocked=0
+
+declare -A seen_objects
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ "$local_sha" == "$ZERO_SHA" ]] && continue
+
+  if [[ "$remote_sha" == "$ZERO_SHA" ]]; then
+    range="$local_sha"
+  else
+    range="${remote_sha}..${local_sha}"
+  fi
+
+  while IFS=$'\t' read -r object_id object_path; do
+    [[ -z "${object_path:-}" ]] && continue
+
+    if [[ -n "${seen_objects[$object_id]:-}" ]]; then
+      continue
+    fi
+    seen_objects[$object_id]=1
+
+    object_size=$(git cat-file -s "$object_id" 2>/dev/null || echo 0)
+    if (( object_size >= MAX_SIZE_BYTES )); then
+      echo "ERROR: Large file detected in push: $object_path ($(numfmt --to=iec-i --suffix=B "$object_size"))"
+      echo "       GitHub rejects files at or above 100MB."
+      echo "       Remove it from commit history or use Git LFS."
+      blocked=1
+    fi
+  done < <(git rev-list --objects "$range")
+done
+
+if (( blocked != 0 )); then
+  echo "Push blocked by pre-push hook due to oversized file(s)."
+  exit 1
+fi
+
+exit 0
