@@ -117,3 +117,4 @@ send_message(inform(inform(inform(inform(inform(reset(smart_bin2),smart_bin2),mo
 send_message(inform(status(smart_bin2,0),smart_bin2))
 send_message(inform(status(smart_bin2,20),smart_bin2))
 send_message(inform(status(smart_bin2,60),smart_bin2))
+send_message(inform(status(smart_bin2,80),smart_bin2))

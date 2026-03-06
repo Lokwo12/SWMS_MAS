@@ -100,3 +100,5 @@ send_message(inform(inform(collect(smart_bin3),control_center),motivation(refuse
 send_message(inform(inform(inform(inform(inform(inform(inform(ready(truck1),truck1),motivation(refused_message),logger),motivation(refused_message),truck1),motivation(refused_message),logger),motivation(refused_message),truck1),motivation(refused_message),logger),motivation(refused_message),truck1))
 send_message(inform(accepted(truck1,smart_bin3),truck1))
 send_message(inform(agree(truck1,smart_bin3),truck1))
+send_message(inform(working(truck1,smart_bin3),truck1))
+send_message(inform(inform(inform(inform(inform(collected(truck1,smart_bin3),truck1),motivation(refused_message),control_center),motivation(refused_message),truck1),motivation(refused_message),control_center),motivation(refused_message),truck1))
