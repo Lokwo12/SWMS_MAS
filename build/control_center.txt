@@ -31,7 +31,16 @@ cc_log_in(From, Payload) :-
 cc_send(To, Payload) :-
     clause(agent(CC),_),
     format('Control center | OUT to=~w payload=~w~n', [To, Payload]),
-    a(message(To, Payload, CC)).
+        ( a(message(To, Payload))
+        ; ( Payload = inform(Content, _Meta, _From)
+            , a(message(To, inform(Content, CC)))
+            )
+        ; ( Payload = inform(Content, _Meta)
+            , a(message(To, inform(Content, CC)))
+            )
+        ; a(message(To, inform(Payload, CC)))
+        ; a(message(To, Payload, CC))
+        ), !.
 
 cc_send_collect(Truck, BinID) :-
     clause(agent(CC),_),

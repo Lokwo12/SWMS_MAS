@@ -26,6 +26,10 @@ NOISE_LINE_PATTERN = re.compile(r"^(SICStus\b|Licensed to\b|conf/communication|\
 BIN_LEVEL_LINE_PATTERN = re.compile(r"Bin\s+(\w+)\s*\|\s*level:\s*([0-9]+)\s*%+", re.IGNORECASE)
 BIN_ALERT_FULL_LINE_PATTERN = re.compile(r"Bin\s+(\w+)\s*\|\s*alert:\s*full", re.IGNORECASE)
 BIN_RESET_LINE_PATTERN = re.compile(r"Bin\s+(\w+)\s*\|\s*reset:\s*", re.IGNORECASE)
+CONTROL_DONE_LINE_PATTERN = re.compile(
+    r"Control\s+center\s*\|\s*done:\s*truck=([A-Za-z0-9_]+)\s+collected\s+bin=([A-Za-z0-9_]+)",
+    re.IGNORECASE,
+)
 
 EVENT_TYPE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("bin_level", re.compile(r"status\(([^,]+),\s*([0-9]+)\)")),
@@ -183,9 +187,9 @@ class EventStreamService:
         fragment = self._extract_data_fragment(line)
 
         if fragment is None:
-            if NOISE_LINE_PATTERN.search(line):
+            if NOISE_LINE_PATTERN.search(normalized_line):
                 return None
-            if not ACTION_LINE_PATTERN.search(line):
+            if not ACTION_LINE_PATTERN.search(normalized_line):
                 return None
 
         event_type = "tmux_line"
@@ -236,6 +240,13 @@ class EventStreamService:
             if m:
                 event_type = "reset"
                 data["bin"] = m.group(1).strip()
+
+        if event_type == "tmux_line":
+            m = CONTROL_DONE_LINE_PATTERN.search(normalized_line)
+            if m:
+                event_type = "completed"
+                data["truck"] = m.group(1).strip()
+                data["bin"] = m.group(2).strip()
 
         return {
             "id": f"evt_{uuid.uuid4().hex[:10]}",

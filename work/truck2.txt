@@ -81,6 +81,10 @@ normalize_collect_msg(inform(collect(BinID), _From), BinID).
 normalize_collect_msg(inform(collect(BinID)), BinID).
 normalize_collect_msg(collect(BinID), BinID).
 normalize_collect_msg(inform(collect(BinID), _, _, _), BinID).
+normalize_collect_msg(inform(inform(collect(BinID), _From), _Sender), BinID).
+normalize_collect_msg(inform(inform(collect(BinID), _Meta, _From), _Sender), BinID).
+normalize_collect_msg(inform(inform(collect(BinID)), _Sender), BinID).
+normalize_collect_msg(inform(inform(collect(BinID), _From), _Meta, _Sender), BinID).
 
 process_collect_orders(dummy) :-
     clause(past(Msg, T, _Sender),_),

@@ -16,14 +16,6 @@ const binBoard = document.getElementById('binBoard');
 const truckBoard = document.getElementById('truckBoard');
 const ccCard = document.getElementById('ccCard');
 const loggerCard = document.getElementById('loggerCard');
-const flowTopology = document.getElementById('flowTopology');
-const flowLinks = document.getElementById('flowLinks');
-const diagWaitingCount = document.getElementById('diagWaitingCount');
-const diagRefusedCount = document.getElementById('diagRefusedCount');
-const diagBlockedCount = document.getElementById('diagBlockedCount');
-const diagCooldownCount = document.getElementById('diagCooldownCount');
-const diagPendingBins = document.getElementById('diagPendingBins');
-const diagLastTs = document.getElementById('diagLastTs');
 const collectionLineChart = document.getElementById('collectionLineChart');
 const collectionPieChart = document.getElementById('collectionPieChart');
 const collectionPieLegend = document.getElementById('collectionPieLegend');
@@ -126,55 +118,6 @@ function initApiBase() {
   }
 }
 
-function createFlowTopology() {
-  if (!flowTopology) return;
-  flowTopology.innerHTML = `
-    <svg class="topology-svg" viewBox="0 0 1000 420" preserveAspectRatio="xMidYMid meet">
-      <defs>
-        <marker id="flowArrow" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L12,6 L0,12 z" fill="context-stroke" />
-        </marker>
-      </defs>
-
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="smart_bin1->control_center" x1="170" y1="92" x2="405" y2="196"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="smart_bin2->control_center" x1="170" y1="210" x2="405" y2="210"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="smart_bin3->control_center" x1="170" y1="328" x2="405" y2="224"></line>
-
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->truck1" x1="455" y1="196" x2="690" y2="92"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->truck2" x1="455" y1="210" x2="690" y2="210"></line>
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->truck3" x1="455" y1="224" x2="690" y2="328"></line>
-
-      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck1->smart_bin1" d="M690 90 C520 52, 340 52, 170 90"></path>
-      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck1->smart_bin2" d="M690 90 C520 96, 340 176, 170 210"></path>
-      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck1->smart_bin3" d="M690 90 C520 136, 340 296, 170 330"></path>
-
-      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck2->smart_bin1" d="M690 210 C520 162, 340 96, 170 90"></path>
-      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck2->smart_bin2" d="M690 210 C520 210, 340 210, 170 210"></path>
-      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck2->smart_bin3" d="M690 210 C520 258, 340 324, 170 330"></path>
-
-      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck3->smart_bin1" d="M690 330 C520 284, 340 124, 170 90"></path>
-      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck3->smart_bin2" d="M690 330 C520 324, 340 244, 170 210"></path>
-      <path class="topology-line" marker-end="url(#flowArrow)" data-flow-link="truck3->smart_bin3" d="M690 330 C520 368, 340 368, 170 330"></path>
-
-      <line class="topology-line" marker-end="url(#flowArrow)" data-flow-link="control_center->logger" x1="430" y1="246" x2="430" y2="322"></line>
-    </svg>
-
-    <div class="topology-lane lane-bins">Smart Bins</div>
-    <div class="topology-lane lane-control">Control Center</div>
-    <div class="topology-lane lane-trucks">Trucks</div>
-    <div class="topology-lane lane-logger">Logger</div>
-
-    <div class="topology-node node-bin1"><span class="node-icon">🗑️</span><span class="node-label">smart_bin1</span></div>
-    <div class="topology-node node-bin2"><span class="node-icon">🗑️</span><span class="node-label">smart_bin2</span></div>
-    <div class="topology-node node-bin3"><span class="node-icon">🗑️</span><span class="node-label">smart_bin3</span></div>
-    <div class="topology-node node-cc"><span class="node-icon">🎛️</span><span class="node-label">control_center</span></div>
-    <div class="topology-node node-truck1"><span class="node-icon">🚚</span><span class="node-label">truck1</span></div>
-    <div class="topology-node node-truck2"><span class="node-icon">🚚</span><span class="node-label">truck2</span></div>
-    <div class="topology-node node-truck3"><span class="node-icon">🚚</span><span class="node-label">truck3</span></div>
-    <div class="topology-node node-logger"><span class="node-icon">🧾</span><span class="node-label">logger</span></div>
-  `;
-}
-
 function iconForAgent(id) {
   if (!id) return '•';
   if (id.startsWith('smart_bin')) return '🗑️';
@@ -253,8 +196,6 @@ function resetDashboardState({ resetEpoch = true } = {}) {
   renderTypeOptions();
   renderEvents();
   renderStatusBoard();
-  renderFlowLinks();
-  renderFlowDiagnostics();
   renderCollectionReports();
   renderPresentationView();
 }
@@ -272,18 +213,6 @@ function initViewMode() {
   viewModeSelect.addEventListener('change', () => {
     applyViewMode(viewModeSelect.value);
     renderCollectionReports();
-  });
-}
-
-function renderFlowTopology() {
-  if (!flowTopology) return;
-  const now = Date.now();
-  flowTopology.querySelectorAll('.topology-line').forEach((line) => {
-    const key = line.dataset.flowLink;
-    const info = flowState[key];
-    const active = isFlowLinkActive(info, now);
-    line.classList.toggle('active', active);
-    line.setAttribute('title', `${key} | msg: ${info?.count ?? 0} | last: ${info?.lastType ?? '-'} | at: ${fmtTs(info?.lastAt)}`);
   });
 }
 
@@ -370,7 +299,7 @@ function renderPresentationView() {
   const activeLinks = Object.values(flowState).filter((info) => isFlowLinkActive(info, nowMs)).length;
   const pendingCount = flowDiagState.pendingBins.size;
   const thirtyMinAgo = nowMs - (30 * 60 * 1000);
-  const completedInWindow = events.filter((evt) => evt.type === 'completed' && Date.parse(evt.ts || '') >= thirtyMinAgo).length;
+  const completedInWindow = events.filter((evt) => isValidCompletedCollection(evt) && Date.parse(evt.ts || '') >= thirtyMinAgo).length;
 
   pvSystemState.textContent = (svcState?.textContent || '-').trim() || '-';
   pvWsState.textContent = (wsState?.textContent || '-').trim() || '-';
@@ -454,124 +383,6 @@ function inferFlowLinks(evt) {
   if (['full_received', 'deferred_busy', 'requesting', 'assigned', 'completed', 'refused', 'waiting', 'blocked_not_full'].includes(type)) {
     touchFlowLink('control_center->logger', ts, type);
   }
-}
-
-function renderFlowLinks() {
-  if (!flowLinks) return;
-  const now = Date.now();
-
-  const ageLabel = (ts) => {
-    if (!ts) return 'never';
-    const ageSec = Math.max(0, Math.floor((now - new Date(ts).getTime()) / 1000));
-    if (ageSec < 2) return 'now';
-    if (ageSec < 60) return `${ageSec}s ago`;
-    const min = Math.floor(ageSec / 60);
-    if (min < 60) return `${min}m ago`;
-    const hr = Math.floor(min / 60);
-    return `${hr}h ago`;
-  };
-
-  const renderFlowCard = (link, info) => {
-      const [from, to] = link.split('->');
-      const isActive = isFlowLinkActive(info, now);
-      const lastAtText = fmtTs(info.lastAt);
-      const ageText = ageLabel(info.lastAt);
-      return `
-        <div class="flow-link ${isActive ? 'active' : 'idle'}">
-          <div class="flow-route-row">
-            <span class="flow-endpoint flow-from"><span class="flow-icon">${iconForAgent(from)}</span>${from}</span>
-            <span class="flow-direction">→</span>
-            <span class="flow-endpoint flow-to"><span class="flow-icon">${iconForAgent(to)}</span>${to}</span>
-            <span class="flow-status ${isActive ? 'live' : 'quiet'}">${isActive ? 'live' : 'idle'}</span>
-          </div>
-          <div class="flow-meta-row">
-            <span class="flow-meta-chip">msg ${info.count}</span>
-            <span class="flow-meta-chip">type ${info.lastType}</span>
-            <span class="flow-meta-chip">at ${lastAtText}</span>
-            <span class="flow-meta-chip ${isActive ? 'chip-live' : 'chip-idle'}">${ageText}</span>
-          </div>
-        </div>
-      `;
-  };
-
-  const groups = [
-    {
-      title: '1) Bin alerts to control center',
-      links: ['smart_bin1->control_center', 'smart_bin2->control_center', 'smart_bin3->control_center'],
-    },
-    {
-      title: '2) Dispatch from control center to trucks',
-      links: ['control_center->truck1', 'control_center->truck2', 'control_center->truck3'],
-    },
-    {
-      title: '3) Truck responses and collection',
-      links: [
-        'truck1->smart_bin1', 'truck1->smart_bin2', 'truck1->smart_bin3',
-        'truck2->smart_bin1', 'truck2->smart_bin2', 'truck2->smart_bin3',
-        'truck3->smart_bin1', 'truck3->smart_bin2', 'truck3->smart_bin3',
-      ],
-    },
-    {
-      title: '4) Control center logging',
-      links: ['control_center->logger'],
-    },
-  ];
-
-  const allLinks = groups.flatMap((group) => group.links);
-  const totalActive = allLinks.filter((link) => isFlowLinkActive(flowState[link] || { count: 0, lastAt: null, lastType: '-' }, now)).length;
-  const totalMessages = allLinks.reduce((acc, link) => acc + (flowState[link]?.count || 0), 0);
-
-  flowLinks.innerHTML = `
-    <div class="flow-summary">
-      <span class="flow-summary-chip">links ${allLinks.length}</span>
-      <span class="flow-summary-chip flow-summary-live">active ${totalActive}</span>
-      <span class="flow-summary-chip">messages ${totalMessages}</span>
-    </div>
-    ${groups
-    .map((group) => {
-      const activeInGroup = group.links.filter((link) => isFlowLinkActive(flowState[link] || { count: 0, lastAt: null, lastType: '-' }, now)).length;
-      const sortedLinks = [...group.links].sort((a, b) => {
-        const aActive = isFlowLinkActive(flowState[a] || { count: 0, lastAt: null, lastType: '-' }, now) ? 1 : 0;
-        const bActive = isFlowLinkActive(flowState[b] || { count: 0, lastAt: null, lastType: '-' }, now) ? 1 : 0;
-        if (aActive !== bActive) return bActive - aActive;
-        const aTs = flowState[a]?.lastAt ? new Date(flowState[a].lastAt).getTime() : 0;
-        const bTs = flowState[b]?.lastAt ? new Date(flowState[b].lastAt).getTime() : 0;
-        return bTs - aTs;
-      });
-
-      return `
-      <div class="flow-group">
-        <div class="flow-group-head">
-          <div class="flow-group-title">${group.title}</div>
-          <div class="flow-group-count">${activeInGroup}/${group.links.length} active</div>
-        </div>
-        <div class="flow-group-grid">
-          ${sortedLinks.map((link) => renderFlowCard(link, flowState[link] || { count: 0, lastAt: null, lastType: '-' })).join('')}
-        </div>
-      </div>
-    `;
-    })
-    .join('')}
-  `;
-  renderFlowTopology();
-}
-
-function renderFlowDiagnostics() {
-  if (diagWaitingCount) diagWaitingCount.textContent = String(flowDiagState.waiting);
-  if (diagRefusedCount) diagRefusedCount.textContent = String(flowDiagState.refused);
-  if (diagBlockedCount) diagBlockedCount.textContent = String(flowDiagState.blocked);
-  if (diagCooldownCount) {
-    const cooldownCount = Object.values(boardState.bins)
-      .filter((info) => String(info?.state || '').toLowerCase().includes('cooldown')).length;
-    diagCooldownCount.textContent = String(cooldownCount);
-    const cooldownChip = diagCooldownCount.parentElement;
-    if (cooldownChip) cooldownChip.classList.toggle('flow-diag-chip-active', cooldownCount > 0);
-  }
-  if (diagPendingBins) {
-    const bins = Array.from(flowDiagState.pendingBins);
-    diagPendingBins.textContent = bins.length ? bins.join(', ') : '-';
-  }
-  if (diagLastTs) diagLastTs.textContent = fmtTs(flowDiagState.lastTs);
 }
 
 function resizeCanvasToDisplay(canvas) {
@@ -834,11 +645,26 @@ function fmtPct(num, den) {
   return `${Math.round((num / den) * 100)}%`;
 }
 
+function isValidCompletedCollection(evt) {
+  if (!evt || evt.type !== 'completed') return false;
+  const truck = String(evt.data?.truck || '').trim().toLowerCase();
+  const bin = String(evt.data?.bin || '').trim().toLowerCase();
+  const source = String(evt.source || '').trim().toLowerCase();
+  const pane = String(evt.data?.pane || '').trim().toLowerCase();
+  const completionOrigin = String(evt.data?.completion_origin || '').trim().toLowerCase();
+  const rawBlob = `${String(evt.data?.raw || '')} ${String(evt.data?.line || '')}`.toLowerCase();
+  const truckOrigin = /^tmux:truck\d+$/.test(source) || /^truck\d+$/.test(source) || /^truck\d+$/.test(pane);
+  const truckCollectedInbound = completionOrigin === 'truck_collected'
+    || (/control\s*center\s*\|\s*in\s*from\s*truck\d+/.test(rawBlob)
+      && /collected\(truck\d+\s*,\s*smart_bin\d+\)/.test(rawBlob));
+  return (truckOrigin || truckCollectedInbound) && /^truck\d+$/.test(truck) && /^smart_bin\d+$/.test(bin);
+}
+
 function renderCollectionReports() {
   if (!collectionLineChart || !collectionPieChart || !collectionPieLegend) return;
 
   const completed = events
-    .filter((evt) => evt.type === 'completed')
+    .filter((evt) => isValidCompletedCollection(evt))
     .map((evt) => ({
       tsMs: Date.parse(evt.ts || ''),
       truck: evt.data?.truck || 'unknown',
@@ -911,7 +737,7 @@ function renderCollectionReports() {
   const requestingWindow = windowEvents.filter((evt) => evt.type === 'requesting').length;
   const assignedWindow = windowEvents.filter((evt) => evt.type === 'assigned').length;
   const refusedWindow = windowEvents.filter((evt) => evt.type === 'refused').length;
-  const completedWindowCount = windowEvents.filter((evt) => evt.type === 'completed').length;
+  const completedWindowCount = windowEvents.filter((evt) => isValidCompletedCollection(evt)).length;
   const timeoutWindow = windowEvents.filter((evt) => evt.type === 'completed' && String(evt.data?.truck || '').toLowerCase() === 'timeout').length;
   const deferredBusyWindow = windowEvents.filter((evt) => evt.type === 'deferred_busy').length;
 
@@ -941,7 +767,7 @@ function renderCollectionReports() {
     } else if (evt.type === 'assigned' && row.requestAt) {
       row.assignedAt = tsMs;
       stage.dispatchToAssign.push(tsMs - row.requestAt);
-    } else if (evt.type === 'completed') {
+    } else if (evt.type === 'completed' && isValidCompletedCollection(evt)) {
       row.completedAt = tsMs;
       if (row.assignedAt) stage.assignToComplete.push(tsMs - row.assignedAt);
       if (row.fullAt) stage.fullToComplete.push(tsMs - row.fullAt);
@@ -969,7 +795,7 @@ function renderCollectionReports() {
 
   const completedByTruckWindow = {};
   windowEvents
-    .filter((evt) => evt.type === 'completed')
+    .filter((evt) => isValidCompletedCollection(evt))
     .forEach((evt) => {
       const truck = evt.data?.truck || 'unknown';
       completedByTruckWindow[truck] = (completedByTruckWindow[truck] || 0) + 1;
@@ -1271,8 +1097,6 @@ function updateBoardFromEvent(evt) {
 
   renderStatusBoard();
   inferFlowLinks(evt);
-  renderFlowLinks();
-  renderFlowDiagnostics();
   renderCollectionReports();
 }
 
@@ -1309,6 +1133,9 @@ function deriveEventFromText(text) {
 
   m = text.match(/completed\(([^,]+),\s*([^)]+)\)/);
   if (m) return { type: 'completed', data: { truck: m[1].trim(), bin: m[2].trim() } };
+
+  m = text.match(/collected\(([^,]+),\s*([^)]+)\)/);
+  if (m) return { type: 'completed', data: { truck: m[1].trim(), bin: m[2].trim(), completion_origin: 'truck_collected' } };
 
   m = text.match(/working\(([^,]+),\s*([^)]+)\)/);
   if (m) return { type: 'working', data: { truck: m[1].trim(), bin: m[2].trim() } };
@@ -1684,11 +1511,7 @@ bootstrapOperations();
 renderTypeOptions();
 renderEvents();
 renderStatusBoard();
-createFlowTopology();
-renderFlowLinks();
-renderFlowDiagnostics();
 renderCollectionReports();
 renderPresentationView();
-setInterval(renderFlowLinks, 1000);
 window.addEventListener('resize', renderCollectionReports);
 connectWs();
