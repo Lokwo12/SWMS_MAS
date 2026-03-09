@@ -45,3 +45,7 @@ Thumbs.db
 bin/
 
 src/
+*.log
+*.aux
+*.out
+*.toc
