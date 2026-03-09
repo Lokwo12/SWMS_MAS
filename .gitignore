@@ -43,3 +43,5 @@ Thumbs.db
 # Build/output directories
 /build/
 bin/
+
+src/
